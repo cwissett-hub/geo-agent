@@ -48,3 +48,39 @@ test("scoreRound bundles hit and verdicts", () => {
   assert.equal(s.hit, true);
   assert.equal(s.verdicts.length, 3);
 });
+
+test("word boundary: Nigeria clue does not match Niger", () => {
+  const clue = { id: 1, category: "test", observation: "", inference: "Looks like Nigeria",
+    weight: 1, box: { x: 0, y: 0, w: 0.1, h: 0.1 } };
+  const v = scoreClues({ guess: { country: "Test", region: null, lat: null, lng: null },
+    confidence: 1, alternatives: [], summary: "", clues: [clue] },
+    { country: "Niger", region: null, lat: null, lng: null });
+  assert.equal(v[0].verdict, "misleading");
+});
+
+test("word boundary: Niger clue matches Niger with punctuation", () => {
+  const clue = { id: 1, category: "test", observation: "", inference: "Typical of Niger.",
+    weight: 1, box: { x: 0, y: 0, w: 0.1, h: 0.1 } };
+  const v = scoreClues({ guess: { country: "Test", region: null, lat: null, lng: null },
+    confidence: 1, alternatives: [], summary: "", clues: [clue] },
+    { country: "Niger", region: null, lat: null, lng: null });
+  assert.equal(v[0].verdict, "supporting");
+});
+
+test("word boundary: South Africa clue matches multi-word country", () => {
+  const clue = { id: 1, category: "test", observation: "", inference: "South Africa style bollards",
+    weight: 1, box: { x: 0, y: 0, w: 0.1, h: 0.1 } };
+  const v = scoreClues({ guess: { country: "Test", region: null, lat: null, lng: null },
+    confidence: 1, alternatives: [], summary: "", clues: [clue] },
+    { country: "South Africa", region: null, lat: null, lng: null });
+  assert.equal(v[0].verdict, "supporting");
+});
+
+test("word boundary: Guinea-Bissau clue does not match Guinea", () => {
+  const clue = { id: 1, category: "test", observation: "", inference: "Guinea-Bissau road",
+    weight: 1, box: { x: 0, y: 0, w: 0.1, h: 0.1 } };
+  const v = scoreClues({ guess: { country: "Test", region: null, lat: null, lng: null },
+    confidence: 1, alternatives: [], summary: "", clues: [clue] },
+    { country: "Guinea", region: null, lat: null, lng: null });
+  assert.equal(v[0].verdict, "misleading");
+});
