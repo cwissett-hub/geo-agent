@@ -9,6 +9,9 @@ config.local.*
 # Node
 node_modules/
 
+# Standalone Chromium profile created by launch-chromium.cmd (logins, keys, notebook)
+.chromium-profile/
+
 # OS / editor
 .DS_Store
 Thumbs.db

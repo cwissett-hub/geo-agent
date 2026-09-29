@@ -14,7 +14,15 @@ let currentRound = null;   // Round | {pending: true} | null
 let heldImage = null;      // last screenshot data URL, for retry
 
 export async function refreshFeedback() {
-  const lines = feedbackLines(await allRounds());
+  // The notebook is an optimisation, not a requirement: if IndexedDB is
+  // unavailable (seen once with a profile on a temp path) the panel must still
+  // capture and render, just without feedback lines.
+  let lines = [];
+  try {
+    lines = feedbackLines(await allRounds());
+  } catch (e) {
+    console.warn("notebook unavailable, continuing without feedback:", e);
+  }
   await chrome.storage.session.set({ lastFeedback: lines });
   return lines;
 }

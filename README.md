@@ -35,6 +35,16 @@ page internals.
 
 No build step. No server. Nothing is installed.
 
+### If "Load unpacked" is blocked by a corporate Chrome policy
+
+Run `launch-chromium.cmd` in the repo folder. It starts the standalone Chromium
+that Playwright installs (`npx playwright install chromium` once, if you don't
+have it) with the extension pre-loaded and its own profile in
+`.chromium-profile`, so GeoGuessr logins, keys and the notebook persist between
+launches. That Chromium is not Google Chrome, so Chrome's managed policies do
+not apply to it. Keep the profile folder on a normal disk path: IndexedDB
+failed to open when the profile lived under a temp directory.
+
 ## Providers
 
 | Provider | Model | Default state | Where to get a key | Cost |
