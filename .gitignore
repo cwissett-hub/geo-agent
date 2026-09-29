@@ -1,0 +1,15 @@
+# Never commit keys or local state
+*.key
+*.env
+.env*
+secrets*
+*.local.json
+config.local.*
+
+# Node
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
