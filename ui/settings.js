@@ -12,6 +12,7 @@ export async function renderSettings(root) {
 
   const general = card("General");
   general.append(
+    checkbox("manual", "Manual mode: capture only, no API call (copy image + prompt into a chat, paste the reply back)", s.manual),
     field("Active provider", select("active", PROVIDER_ORDER.map((id) => [id, PROVIDERS[id].label]), s.active)),
     checkbox("askAll", "Ask every enabled provider with a key (side by side)", s.askAll),
     field("Claude effort", select("effort", EFFORTS.map((e) => [e, e]), s.effort)),
@@ -34,6 +35,7 @@ export async function renderSettings(root) {
   save.textContent = "Save settings";
   save.onclick = async () => {
     const next = {
+      manual: root.querySelector("#manual").checked,
       active: root.querySelector("#active").value,
       askAll: root.querySelector("#askAll").checked,
       effort: root.querySelector("#effort").value,
@@ -43,9 +45,19 @@ export async function renderSettings(root) {
         model: root.querySelector(`#model-${id}`).value.trim() || PROVIDERS[id].defaultModel,
       }])),
     };
+    // First key saved for the active provider: leave manual mode automatically.
+    const hadKey = Boolean(s.providers[next.active] && s.providers[next.active].key);
+    const hasKey = Boolean(next.providers[next.active].key);
+    let note = "Saved";
+    if (next.manual && !hadKey && hasKey) {
+      next.manual = false;
+      root.querySelector("#manual").checked = false;
+      note = "Saved, manual mode off";
+    }
     await saveSettings(next);
-    save.textContent = "Saved";
-    setTimeout(() => { save.textContent = "Save settings"; }, 1200);
+    Object.assign(s, next);
+    save.textContent = note;
+    setTimeout(() => { save.textContent = "Save settings"; }, 1600);
   };
   root.append(save);
 

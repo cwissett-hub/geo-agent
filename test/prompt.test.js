@@ -7,7 +7,7 @@ test("categories are the fixed list in spec order", () => {
   assert.deepEqual(CATEGORIES, [
     "road_markings", "signage_script", "driving_side", "vegetation_landscape",
     "architecture", "vehicles_plates", "bollards_poles", "camera_car_meta",
-    "soil_climate", "other",
+    "soil_climate", "sun_shadow", "other",
   ]);
 });
 

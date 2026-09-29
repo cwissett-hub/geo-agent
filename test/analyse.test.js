@@ -47,3 +47,13 @@ test("analyseImage wraps unexpected errors as code unknown", async () => {
   const round = await analyseImage("d", settings, [], fake);
   assert.deepEqual(round.results[0].error, { code: "unknown", message: "weird", raw: null });
 });
+
+test("manual mode asks no provider and yields a round with no results", async () => {
+  const manual = { ...settings, manual: true, askAll: true };
+  assert.deepEqual(providersToAsk(manual), []);
+  let calls = 0;
+  const round = await analyseImage("data:image/png;base64,AA", manual, [], async () => { calls++; return goodResult; });
+  assert.equal(calls, 0);
+  assert.deepEqual(round.results, []);
+  assert.equal(round.imageDataUrl, "data:image/png;base64,AA");
+});
