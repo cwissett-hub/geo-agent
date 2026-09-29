@@ -500,6 +500,30 @@ table.stats .n { margin-left: 6px; font-size: 11px; }
   min-width: 2px;
 }
 
+/* --- Manual mode ---------------------------------------------------------- */
+
+/* The reply is raw JSON, so the field is a recessed monospace panel matching the
+   other inputs (--field, hairline --line, small radius, 8px rhythm). */
+.manual textarea {
+  width: 100%;
+  font: 12px/1.4 var(--font-num);
+  background: var(--field);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2);
+  resize: vertical;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.manual textarea::placeholder { color: #656b74; }
+.manual textarea:hover { border-color: #3a3f48; }
+.manual textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.manual #manual-err { margin-top: var(--sp-2); }
+
 /* --- Motion preference ---------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {

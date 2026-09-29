@@ -1,15 +1,12 @@
 import { allRounds, deleteRound } from "../lib/notebook-db.js";
 import { stats } from "../lib/notebook-logic.js";
-import { PROVIDERS, PROVIDER_ORDER } from "../lib/providers/index.js";
+import { PROVIDER_ORDER } from "../lib/providers/index.js";
+import { providerLabel } from "../lib/manual.js";
 import { CATEGORIES } from "../lib/prompt.js";
 
 // Filters persist across re-renders so re-rendering after a delete or a filter
 // change keeps the controls where the user left them.
 const filters = { country: "", category: "", provider: "" };
-
-// Task 16 introduces a "manual" provider id with no entry in PROVIDERS; never
-// index PROVIDERS blindly. (Task 16 will swap this for a shared providerLabel.)
-const label = (id) => PROVIDERS[id]?.label ?? "Manual paste";
 
 export async function renderNotebook(root, { onOpen, onDeleted }) {
   const rounds = await allRounds();
@@ -32,7 +29,7 @@ export async function renderNotebook(root, { onOpen, onDeleted }) {
   const provider = document.createElement("select");
   provider.setAttribute("aria-label", "Filter rounds by provider");
   provider.append(new Option("All providers", ""));
-  for (const id of PROVIDER_ORDER) provider.append(new Option(label(id), id, false, id === filters.provider));
+  for (const id of PROVIDER_ORDER) provider.append(new Option(providerLabel(id), id, false, id === filters.provider));
 
   const rerender = () => {
     filters.country = country.value;
@@ -87,8 +84,8 @@ function roundRow(round, { onOpen, onDeleted }) {
 
   const text = document.createElement("div");
   const guesses = round.results.map((r) => r.result
-    ? `${label(r.provider).split(" ")[0]}: ${r.result.guess.country}`
-    : `${label(r.provider).split(" ")[0]}: error`).join(" · ");
+    ? `${providerLabel(r.provider).split(" ")[0]}: ${r.result.guess.country}`
+    : `${providerLabel(r.provider).split(" ")[0]}: error`).join(" · ");
   const when = new Date(round.ts).toLocaleString();
   let verdict = '<span class="muted">unscored</span>';
   if (round.scores) {
@@ -173,7 +170,7 @@ function statsCard(s) {
     const v = s.byProvider[id];
     const dist = v.meanDistanceKm == null ? "–" : `${Math.round(v.meanDistanceKm)} km`;
     return `<tr>
-      <td>${escapeHtml(label(id))}</td>
+      <td>${escapeHtml(providerLabel(id))}</td>
       <td>${metric(pct(v.rate), v.rate, "var(--accent)")}<span class="muted num n">${v.hits}/${v.rounds}</span></td>
       <td>${pct(v.rounds ? v.regionHits / v.rounds : 0)} <span class="muted num n">${v.regionHits}/${v.rounds}</span></td>
       <td class="num">${dist}</td>

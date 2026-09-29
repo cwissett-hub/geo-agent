@@ -1,7 +1,7 @@
 import { renderSettings } from "./ui/settings.js";
 import { renderRound, renderRoundError } from "./ui/round.js";
 import { renderNotebook } from "./ui/notebook.js";
-import { allRounds } from "./lib/notebook-db.js";
+import { allRounds, putRound } from "./lib/notebook-db.js";
 import { feedbackLines } from "./lib/notebook-logic.js";
 
 const views = {
@@ -32,8 +32,20 @@ export function showView(name) {
 }
 
 function paintRound() {
-  renderRound(views.round, currentRound, { onCapture: capture, onRetry: retry });
+  renderRound(views.round, currentRound, { onCapture: capture, onRetry: retry, onUpdate: updateRound });
   views.round._onSaved = () => refreshFeedback();
+}
+
+// The manual card hands back an updated round (a pasted result added, scores
+// recomputed if the round is already saved). Persist it as the held round and,
+// once the actual location exists, into the notebook, then re-render.
+async function updateRound(updated) {
+  currentRound = updated;
+  heldImage = updated.imageDataUrl;
+  await chrome.storage.session.set({ lastRound: updated });
+  if (updated.actual) await putRound(updated);
+  paintRound();
+  if (updated.actual) refreshFeedback();
 }
 
 function handleReply(reply) {

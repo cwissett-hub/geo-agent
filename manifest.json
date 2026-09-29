@@ -3,7 +3,7 @@
   "name": "Geo Meta Trainer",
   "version": "0.1.0",
   "description": "Screenshot a GeoGuessr round, get a vision-model guess with boxed clues and weights, and build a personal meta notebook.",
-  "permissions": ["activeTab", "sidePanel", "storage", "tabs"],
+  "permissions": ["activeTab", "sidePanel", "storage", "tabs", "clipboardWrite"],
   "host_permissions": [
     "https://www.geoguessr.com/*",
     "https://api.anthropic.com/*",

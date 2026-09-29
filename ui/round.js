@@ -1,8 +1,8 @@
 import { applyActual } from "../lib/notebook-logic.js";
 import { putRound } from "../lib/notebook-db.js";
 import { parseActualInput } from "../lib/geo.js";
-import { PROVIDERS } from "../lib/providers/index.js";
 import { COVERAGE_COUNTRIES } from "../lib/countries.js";
+import { manualPrompt, parsePastedReply, manualResultEntry, providerLabel } from "../lib/manual.js";
 
 const ERROR_TEXT = {
   no_key: "No API key for this provider. Add one in Settings.",
@@ -32,7 +32,7 @@ export function renderRoundError(root, error, { onRetry }) {
   if (onRetry) root.append(actionButton("Retry", onRetry));
 }
 
-export function renderRound(root, round, { onCapture, onRetry }) {
+export function renderRound(root, round, { onCapture, onRetry, onUpdate }) {
   root.innerHTML = "";
   const top = document.createElement("div");
   top.className = "row";
@@ -88,7 +88,7 @@ export function renderRound(root, round, { onCapture, onRetry }) {
     col.className = "card";
     const h = document.createElement("h3");
     h.style.margin = "0 0 6px";
-    h.textContent = `${PROVIDERS[r.provider].label} · ${r.model}`;
+    h.textContent = `${providerLabel(r.provider)} · ${r.model}`;
     col.append(h);
     if (r.error) {
       const holder = document.createElement("div");
@@ -107,11 +107,79 @@ export function renderRound(root, round, { onCapture, onRetry }) {
   // Leaving the results area restores the default provider's boxes.
   if (multi && firstOk) columns.onmouseleave = () => showOnly(firstOk.provider);
 
+  // Manual mode: usable whenever there is a screenshot, including when every
+  // API result errored (no key, or a failed call — the main use case).
+  if (round.imageDataUrl) {
+    // rerender persists the updated round and re-renders. sidepanel.js supplies
+    // onUpdate (updates currentRound, writes session lastRound, and putRound
+    // when the round is already saved); the local fallback just re-renders.
+    const rerender = onUpdate
+      ? onUpdate
+      : (updated) => renderRound(root, updated, { onCapture, onRetry, onUpdate });
+    mainCol.append(manualCard(round, rerender));
+  }
+
   mainCol.append(actualForm(round, async (updated) => {
     await putRound(updated);
-    renderRound(root, updated, { onCapture, onRetry });
+    renderRound(root, updated, { onCapture, onRetry, onUpdate });
     if (root._onSaved) root._onSaved(updated);
   }));
+}
+
+function manualCard(round, rerender) {
+  const card = document.createElement("div");
+  card.className = "card manual";
+  card.innerHTML = `
+    <h3>Manual mode</h3>
+    <p class="muted">No API key, or the call failed? Copy the image and the prompt, paste both into any chat model, then paste its reply below.</p>
+    <div class="row">
+      <button class="secondary" data-act="copy-image">Copy image</button>
+      <button class="secondary" data-act="copy-prompt">Copy prompt</button>
+    </div>
+    <label for="manual-reply">Paste the reply here</label>
+    <textarea id="manual-reply" rows="5" placeholder='{"guess": {...}, "clues": [...], ...}'></textarea>
+    <p class="error" id="manual-err" hidden></p>`;
+  const flash = (btn, text) => { const old = btn.textContent; btn.textContent = text; setTimeout(() => { btn.textContent = old; }, 1200); };
+
+  card.querySelector('[data-act="copy-image"]').onclick = async (e) => {
+    try {
+      const blob = await dataUrlToPngBlob(round.imageDataUrl);
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      flash(e.target, "Copied");
+    } catch (err) {
+      flash(e.target, `Failed: ${err.message}`);
+    }
+  };
+  card.querySelector('[data-act="copy-prompt"]').onclick = async (e) => {
+    const { lastFeedback } = await chrome.storage.session.get("lastFeedback");
+    await navigator.clipboard.writeText(manualPrompt(lastFeedback || []));
+    flash(e.target, "Copied");
+  };
+  const use = actionButton("Use reply", () => {
+    const err = card.querySelector("#manual-err");
+    try {
+      const result = parsePastedReply(card.querySelector("#manual-reply").value);
+      const results = round.results.filter((r) => r.provider !== "manual").concat(manualResultEntry(result));
+      let updated = { ...round, results };
+      if (round.actual) updated = applyActual(updated, round.actual);
+      rerender(updated);
+    } catch (e) {
+      err.textContent = e.message;
+      err.hidden = false;
+    }
+  });
+  use.style.marginTop = "8px";
+  card.append(use);
+  return card;
+}
+
+async function dataUrlToPngBlob(dataUrl) {
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error("could not decode image")); img.src = dataUrl; });
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+  canvas.getContext("2d").drawImage(img, 0, 0);
+  return new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error("PNG encode failed"))), "image/png"));
 }
 
 function drawBoxes(shot, result, visible) {
