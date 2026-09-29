@@ -1653,7 +1653,7 @@ git push origin main
   - `export async function analyseImage(imageDataUrl, settings, feedback, callImpl = callProvider)` → `Round` (from `newRound`) whose `results` contain one entry per provider asked, each either `{result, error: null}` or `{result: null, error: {code, message, raw}}`. Never throws; per-provider failures are captured.
 - Produces (background messaging):
   - Panel → background: `{type: "capture", feedback: string[]}` → replies `{ok: true, round}` or `{ok: false, error: {code, message}}`.
-  - Command `capture` (Alt+G): background captures, analyses with `feedback` read from `chrome.storage.session.lastFeedback` (the panel writes this whenever the notebook changes), stores the round in `chrome.storage.session.lastRound`, opens the side panel, and broadcasts `{type: "round", round}`.
+  - Command `capture` (Alt+G): background captures, analyses with `feedback` read from `chrome.storage.session.lastFeedback` (the panel writes this whenever the notebook changes), stores the round in `chrome.storage.session.lastRound`, opens the side panel, and broadcasts `{type: "round", reply}` where `reply` is the same `{ok, round}` / `{ok: false, error}` envelope the capture message returns.
   - Panel on load reads `chrome.storage.session.lastRound`.
 
 - [ ] **Step 1: Write the failing test for analyse.js**
