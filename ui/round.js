@@ -245,8 +245,11 @@ function resultBody(r, round, boxEls) {
       const km = score.distanceKm < 10 ? score.distanceKm.toFixed(1) : String(Math.round(score.distanceKm));
       out.push(p("muted", `${km} km away`));
     }
+    if (round.actual.locality) {
+      out.push(p(score.localityHit ? "hit" : "miss", score.localityHit ? "Town: correct" : `Town: wrong (${round.actual.locality})`));
+    }
     if (round.actual.region) {
-      out.push(p(score.regionHit ? "hit" : "miss", score.regionHit ? "Region: correct" : "Region: wrong"));
+      out.push(p(score.regionHit ? "hit" : "miss", score.regionHit ? "Region: correct" : `Region: wrong (${round.actual.region})`));
     }
   }
 
@@ -302,7 +305,7 @@ function actualForm(round, onSave) {
   card.className = "card";
   if (round.actual) {
     const a = round.actual;
-    card.innerHTML = `<strong>Actual:</strong> ${escapeHtml([a.country, a.region].filter(Boolean).join(", "))}`
+    card.innerHTML = `<strong>Actual:</strong> ${escapeHtml([a.country, a.region, a.locality].filter(Boolean).join(", "))}`
       + (a.lat != null ? ` <span class="muted coord">(${a.lat}, ${a.lng})</span>` : "")
       + ' <span class="muted">· saved to notebook</span>';
     return card;
@@ -310,7 +313,8 @@ function actualForm(round, onSave) {
   card.innerHTML = `
     <h3 style="margin:0 0 6px">What was it actually?</h3>
     <label for="act-country">Country</label><input id="act-country" list="country-list" placeholder="e.g. Peru">
-    <label for="act-region">Region (optional)</label><input id="act-region" placeholder="e.g. Arequipa">
+    <label for="act-town">Nearest large town (optional)</label><input id="act-town" placeholder="e.g. Arequipa">
+    <label for="act-region">Region (optional)</label><input id="act-region" placeholder="e.g. Arequipa Region">
     <label for="act-coords">Coordinates (optional)</label><input id="act-coords" placeholder="lat, lng">
     <p class="error" id="act-err" hidden></p>`;
 
@@ -331,6 +335,7 @@ function actualForm(round, onSave) {
         card.querySelector("#act-country").value,
         card.querySelector("#act-region").value,
         card.querySelector("#act-coords").value,
+        card.querySelector("#act-town").value,
       );
       await onSave(applyActual(round, actual));
     } catch (e) {

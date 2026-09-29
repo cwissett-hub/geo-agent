@@ -62,7 +62,7 @@ test("stats aggregates by category and provider", () => {
   const unscored = newRound("d", [{ provider: "gemini", model: "m", result: res("Chile"), error: null }]);
   const s = stats([hit, miss, unscored]);
   assert.equal(s.total, 2);
-  assert.deepEqual(s.byProvider.gemini, { hits: 1, rounds: 2, rate: 0.5, regionHits: 0, meanDistanceKm: null });
+  assert.deepEqual(s.byProvider.gemini, { hits: 1, rounds: 2, rate: 0.5, regionHits: 0, localityHits: 0, meanDistanceKm: null });
   assert.deepEqual(s.byCategory.road_markings, { supporting: 1, misleading: 1, rate: 0.5 });
   assert.deepEqual(s.byCategory.soil_climate, { supporting: 1, misleading: 1, rate: 0.5 });
 });
@@ -131,4 +131,15 @@ test("feedbackLines include regions when known", () => {
     result: { ...res("Chile"), guess: { country: "Chile", region: "Atacama", locality: null, lat: null, lng: null } }, error: null }]),
     { country: "Peru", region: "Arequipa", lat: null, lng: null });
   assert.deepEqual(feedbackLines([r]), ["Guessed Chile, Atacama (top clue: yellow centre line); actual Peru, Arequipa"]);
+});
+
+test("feedbackLines and stats include the nearest large town", () => {
+  const r = applyActual(newRound("d", [{ provider: "openai", model: "m",
+    result: { ...res("Chile"), guess: { country: "Chile", region: "Atacama", locality: "Calama", lat: null, lng: null } }, error: null }]),
+    { country: "Peru", region: "Arequipa", locality: "Arequipa", lat: null, lng: null });
+  assert.deepEqual(feedbackLines([r]), ["Guessed Chile, Atacama, Calama (top clue: yellow centre line); actual Peru, Arequipa, Arequipa"]);
+  const hit = applyActual(newRound("d", [{ provider: "openai", model: "m",
+    result: { ...res("Chile"), guess: { country: "Chile", region: "Atacama", locality: "Calama", lat: null, lng: null } }, error: null }]),
+    { country: "Chile", region: null, locality: "calama", lat: null, lng: null });
+  assert.equal(stats([r, hit]).byProvider.openai.localityHits, 1);
 });

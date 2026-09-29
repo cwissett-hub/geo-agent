@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normaliseName, isHit, scoreClues, scoreRound, distanceKm, isRegionHit } from "../lib/score.js";
+import { normaliseName, isHit, scoreClues, scoreRound, distanceKm, isRegionHit, isLocalityHit } from "../lib/score.js";
 
 const result = {
   guess: { country: "Chile", region: null, lat: null, lng: null },
@@ -114,4 +114,23 @@ test("scoreRound reports region hit and distance", () => {
   const t = scoreRound(r, { country: "Chile", region: null, lat: null, lng: null });
   assert.equal(t.regionHit, false);
   assert.equal(t.distanceKm, null);
+});
+
+test("isLocalityHit compares nearest large towns loosely", () => {
+  const r = { ...result, guess: { ...result.guess, locality: "Calama" } };
+  assert.equal(isLocalityHit(r, { country: "Chile", region: null, locality: "calama", lat: null, lng: null }), true);
+  assert.equal(isLocalityHit(r, { country: "Chile", region: null, locality: "Calama, Chile", lat: null, lng: null }), true);
+  assert.equal(isLocalityHit(r, { country: "Chile", region: null, locality: "Antofagasta", lat: null, lng: null }), false);
+  assert.equal(isLocalityHit(r, { country: "Chile", region: null, locality: null, lat: null, lng: null }), false);
+  assert.equal(isLocalityHit({ ...result, guess: { ...result.guess, locality: null } },
+    { country: "Chile", region: null, locality: "Calama", lat: null, lng: null }), false);
+});
+
+test("scoreRound reports the town hit and a clue naming the town is supporting", () => {
+  const r = { ...result, guess: { ...result.guess, locality: "Calama" },
+    clues: [{ id: 1, category: "signage_script", observation: "Sign says Calama", inference: "Near Calama", weight: 1, box: { x: 0, y: 0, w: 0.1, h: 0.1 } }] };
+  const s = scoreRound(r, { country: "Peru", region: null, locality: "Calama", lat: null, lng: null });
+  assert.equal(s.hit, false);
+  assert.equal(s.localityHit, true);
+  assert.deepEqual(s.verdicts, [{ id: 1, verdict: "supporting" }]);
 });

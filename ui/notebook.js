@@ -189,9 +189,12 @@ function statsCard(s) {
     const v = s.byProvider[id];
     const dist = v.meanDistanceKm == null ? "–" : `${Math.round(v.meanDistanceKm)} km`;
     const regionRate = v.rounds ? v.regionHits / v.rounds : 0;
+    const townHits = v.localityHits || 0;
+    const townRate = v.rounds ? townHits / v.rounds : 0;
     return `<tr>
       <td>${escapeHtml(providerLabel(id))}</td>
       <td>${metric(pct(v.rate), v.rate, "var(--accent)")}<span class="muted num n">${v.hits}/${v.rounds}</span></td>
+      <td>${metric(pct(townRate), townRate, "var(--accent)")}<span class="muted num n">${townHits}/${v.rounds}</span></td>
       <td>${metric(pct(regionRate), regionRate, "var(--accent)")}<span class="muted num n">${v.regionHits}/${v.rounds}</span></td>
       <td class="num">${dist}</td>
     </tr>`;
@@ -204,7 +207,7 @@ function statsCard(s) {
       ${catRows}
     </table>
     <table class="stats" style="margin-top:12px">
-      <tr><th>Provider</th><th>Country hit</th><th>Region hit</th><th>Mean dist</th></tr>
+      <tr><th>Provider</th><th>Country hit</th><th>Town hit</th><th>Region hit</th><th>Mean dist</th></tr>
       ${provRows}
     </table>`;
   return card;
