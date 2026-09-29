@@ -12,7 +12,7 @@ export async function renderSettings(root) {
 
   const general = card("General");
   general.append(
-    checkbox("manual", "Manual mode: capture only, no API call (copy image + prompt into a chat, paste the reply back)", s.manual),
+    checkbox("manual", "Manual mode: capture only, no API call. Copy the image and prompt into a chat, paste the reply back.", s.manual),
     field("Active provider", select("active", PROVIDER_ORDER.map((id) => [id, PROVIDERS[id].label]), s.active)),
     checkbox("askAll", "Ask every enabled provider with a key (side by side)", s.askAll),
     field("Claude effort", select("effort", EFFORTS.map((e) => [e, e]), s.effort)),
@@ -22,11 +22,13 @@ export async function renderSettings(root) {
   for (const id of PROVIDER_ORDER) {
     const p = s.providers[id];
     const c = card(PROVIDERS[id].label);
-    c.append(
-      checkbox(`enabled-${id}`, "Enabled", p.enabled),
+    const fields = document.createElement("div");
+    fields.className = "fields";
+    fields.append(
       field("API key", input(`key-${id}`, p.key, PROVIDERS[id].keyHint, "password")),
       field("Model", input(`model-${id}`, p.model, PROVIDERS[id].defaultModel)),
     );
+    c.append(checkbox(`enabled-${id}`, "Enabled", p.enabled), fields);
     root.append(c);
   }
 

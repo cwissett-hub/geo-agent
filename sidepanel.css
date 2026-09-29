@@ -636,6 +636,61 @@ table.stats .n { margin-left: 6px; font-size: 11px; }
 .shot.has-pinned .box:not(.pinned):not(.active) { opacity: 0.3; }
 .clue.pinned { background: var(--panel-2); box-shadow: inset 3px 0 0 var(--box-color); }
 
+/* Weight percentage as a small pill so it reads with the other pills. */
+.clue .pct {
+  justify-self: end;
+  padding: 1px 8px;
+  border-radius: 60px;
+  background: var(--field);
+  color: var(--text);
+  font-weight: 700;
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rejected alternatives: country chip, reason beside it. */
+.alternatives { margin-top: var(--sp-3); }
+.alt-label { font-size: 12px; margin-bottom: 4px; }
+.alt { display: flex; align-items: baseline; gap: var(--sp-2); margin: 4px 0; flex-wrap: wrap; }
+.chip-alt { background: #7950e533; color: #cdbdff; }
+.chip-alt::before { display: none; }
+.alt-why { font-size: 13px; }
+
+/* --- Settings: switch-style checkboxes ------------------------------------ */
+
+label.row { flex-wrap: nowrap; align-items: flex-start; gap: var(--sp-3); line-height: 1.35; }
+label.row input[type="checkbox"] {
+  appearance: none;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 20px;
+  margin: 1px 0 0;
+  border-radius: 60px;
+  background: var(--field);
+  border: 1px solid var(--line);
+  position: relative;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+label.row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 120ms ease, background 120ms ease;
+}
+label.row input[type="checkbox"]:checked { background: var(--accent-3); border-color: var(--accent-3); }
+label.row input[type="checkbox"]:checked::after { transform: translateX(14px); background: #fff; }
+
+/* Provider cards: on a wide surface, key and model sit side by side. */
+@media (min-width: 720px) {
+  #view-settings .card .fields { display: grid; grid-template-columns: 2fr 1fr; gap: 0 var(--sp-4); }
+}
+
 /* --- Notebook layout ------------------------------------------------------ */
 
 /* Filter bar on one line: the country box stretches, the two selects hug. */

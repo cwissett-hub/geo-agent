@@ -334,10 +334,12 @@ function resultBody(r, round, boxEls) {
 
   out.push(p("summary", res.summary));
   if (res.alternatives.length) {
+    // Rejected alternatives as chips; the reason shows on hover and as a
+    // second line, so nothing is hidden from keyboard or touch users.
     const alt = document.createElement("div");
-    alt.className = "muted";
-    alt.innerHTML = "<strong>Also considered:</strong> " + res.alternatives
-      .map((a) => `${escapeHtml(a.country)} (${escapeHtml(a.why_not)})`).join("; ");
+    alt.className = "alternatives";
+    alt.innerHTML = `<div class="muted alt-label">Also considered</div>` + res.alternatives
+      .map((a) => `<div class="alt"><span class="chip chip-alt" title="${escapeHtml(a.why_not)}">${escapeHtml(a.country)}</span><span class="muted alt-why">${escapeHtml(a.why_not)}</span></div>`).join("");
     out.push(alt);
   }
   return out;
