@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { newRound, applyActual, feedbackLines, stats, serialiseRounds, parseImport } from "../lib/notebook-logic.js";
 
 const res = (country, clueText = "yellow centre line") => ({
-  guess: { country, region: null, lat: null, lng: null }, confidence: 0.5, alternatives: [], summary: "",
+  guess: { country, region: null, locality: null, lat: null, lng: null }, confidence: 0.5, alternatives: [], summary: "",
   clues: [
     { id: 1, category: "road_markings", observation: clueText, inference: "Americas", weight: 0.7, box: { x: 0, y: 0, w: 0.1, h: 0.1 } },
     { id: 2, category: "soil_climate", observation: "arid", inference: "desert", weight: 0.3, box: { x: 0, y: 0, w: 0.1, h: 0.1 } },
@@ -80,6 +80,28 @@ test("parseImport rejects wrong shapes", () => {
   assert.throws(() => parseImport("[1,2]"), /import:/);
   assert.throws(() => parseImport("not json"), /import:/);
   assert.throws(() => parseImport(JSON.stringify([{ id: "x" }])), /import:/);
+});
+
+test("parseImport sanitises an untrusted clue category to 'other'", () => {
+  const malicious = res("Chile");
+  malicious.clues[0].category = 'x"><img src=x onerror=alert(1)>';
+  const r = newRound("d", [{ provider: "gemini", model: "m", result: malicious, error: null }]);
+  const [back] = parseImport(JSON.stringify([r]));
+  assert.equal(back.results[0].result.clues[0].category, "other");
+});
+
+test("parseImport converts an unparseable result to an error entry instead of rejecting the file", () => {
+  const broken = res("Chile");
+  delete broken.guess.country;
+  const r = newRound("d", [
+    { provider: "gemini", model: "m", result: broken, error: null },
+    { provider: "openai", model: "m", result: res("Chile"), error: null },
+  ]);
+  const [back] = parseImport(JSON.stringify([r]));
+  assert.equal(back.results[0].result, null);
+  assert.equal(back.results[0].error.code, "unparseable");
+  assert.ok(back.results[0].error.message);
+  assert.equal(back.results[1].result.guess.country, "Chile");
 });
 
 test("stats report region hits and mean distance per provider", () => {

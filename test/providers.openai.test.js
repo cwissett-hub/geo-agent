@@ -20,6 +20,7 @@ test("buildRequest targets chat completions with bearer key", () => {
     type: "json_schema",
     json_schema: { name: "round_result", strict: true, schema: RESULT_SCHEMA },
   });
+  assert.equal(body.max_completion_tokens, 16000);
 });
 
 const goodResult = {

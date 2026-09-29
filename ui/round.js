@@ -3,6 +3,7 @@ import { putRound } from "../lib/notebook-db.js";
 import { parseActualInput } from "../lib/geo.js";
 import { COVERAGE_COUNTRIES } from "../lib/countries.js";
 import { manualPrompt, parsePastedReply, manualResultEntry, providerLabel } from "../lib/manual.js";
+import { CATEGORIES } from "../lib/prompt.js";
 
 const ERROR_TEXT = {
   no_key: "No API key for this provider. Add one in Settings.",
@@ -182,12 +183,19 @@ async function dataUrlToPngBlob(dataUrl) {
   return new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error("PNG encode failed"))), "image/png"));
 }
 
+// category is stored in IndexedDB and can arrive from an imported file or a
+// manually-pasted reply; only trust it enough to pick a CSS custom-property
+// name or render it as text if it is one of the known categories.
+function safeCategory(category) {
+  return CATEGORIES.includes(category) ? category : "other";
+}
+
 function drawBoxes(shot, result, visible) {
   const els = [];
   for (const c of result.clues) {
     const b = document.createElement("div");
     b.className = "box";
-    b.style.setProperty("--box-color", `var(--c-${c.category})`);
+    b.style.setProperty("--box-color", `var(--c-${safeCategory(c.category)})`);
     b.style.left = `${c.box.x * 100}%`;
     b.style.top = `${c.box.y * 100}%`;
     b.style.width = `${c.box.w * 100}%`;
@@ -247,12 +255,13 @@ function resultBody(r, round, boxEls) {
     const row = document.createElement("div");
     row.className = "clue";
     row.tabIndex = 0;
-    row.style.setProperty("--box-color", `var(--c-${c.category})`);
+    const category = safeCategory(c.category);
+    row.style.setProperty("--box-color", `var(--c-${category})`);
     const verdict = score && score.verdicts.find((v) => v.id === c.id);
     row.innerHTML = `
       <div class="num">${c.id}</div>
       <div>
-        <div class="cat">${c.category.replace(/_/g, " ")}${verdict ? ` · <span class="verdict-${verdict.verdict}">${verdict.verdict}</span>` : ""}</div>
+        <div class="cat">${escapeHtml(category.replace(/_/g, " "))}${verdict ? ` · <span class="verdict-${verdict.verdict}">${verdict.verdict}</span>` : ""}</div>
         <div>${escapeHtml(c.observation)}</div>
         <div class="muted">${escapeHtml(c.inference)}</div>
         <div class="bar" style="width:${Math.max(2, c.weight * 100)}%"></div>

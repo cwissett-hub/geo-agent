@@ -168,10 +168,13 @@ function statsCard(s) {
   const catRows = Object.entries(s.byCategory)
     .sort((a, b) => b[1].rate - a[1].rate)
     .map(([c, v]) => {
+      // c comes from saved round data (import or manual paste), so only trust
+      // it as a CSS custom-property name if it is a known category.
+      const cat = CATEGORIES.includes(c) ? c : "other";
       const n = v.supporting + v.misleading;
       return `<tr>
-        <td>${escapeHtml(c.replace(/_/g, " "))}</td>
-        <td>${metric(pct(v.rate), v.rate, `var(--c-${c})`)}</td>
+        <td>${escapeHtml(cat.replace(/_/g, " "))}</td>
+        <td>${metric(pct(v.rate), v.rate, `var(--c-${cat})`)}</td>
         <td class="muted num">${v.supporting}/${n}</td>
       </tr>`;
     }).join("");
