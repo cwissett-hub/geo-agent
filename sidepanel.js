@@ -1,5 +1,6 @@
 import { renderSettings } from "./ui/settings.js";
 import { renderRound, renderRoundError } from "./ui/round.js";
+import { renderNotebook } from "./ui/notebook.js";
 import { allRounds } from "./lib/notebook-db.js";
 import { feedbackLines } from "./lib/notebook-logic.js";
 
@@ -22,7 +23,12 @@ export function showView(name) {
   for (const b of document.querySelectorAll(".tabs button")) b.classList.toggle("active", b.dataset.view === name);
   for (const [k, el] of Object.entries(views)) el.classList.toggle("active", k === name);
   if (name === "settings") renderSettings(views.settings);
-  if (name === "notebook" && window.renderNotebookView) window.renderNotebookView(views.notebook);
+  if (name === "notebook") {
+    renderNotebook(views.notebook, {
+      onOpen: (round) => { currentRound = round; heldImage = round.imageDataUrl; showView("round"); paintRound(); },
+      onDeleted: () => refreshFeedback(),
+    });
+  }
 }
 
 function paintRound() {

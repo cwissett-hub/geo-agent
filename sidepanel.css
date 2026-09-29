@@ -422,6 +422,45 @@ button.primary:focus-visible { outline-offset: 3px; }
   border-radius: 4px;
 }
 
+/* The delete control is a quiet square; it must never look like the primary
+   action of the row (opening the round). */
+.round-row .del {
+  align-self: start;
+  padding: 4px 8px;
+  color: var(--muted);
+  line-height: 1;
+}
+.round-row .del:hover { color: var(--danger); border-color: var(--danger); }
+
+/* Wide-view second line: one quiet chip per distinct clue category in the
+   round, dotted with the category's fixed colour. Hidden in the narrow panel. */
+.round-chips { display: none; gap: var(--sp-1); flex-wrap: wrap; margin-top: 6px; }
+.round-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.round-chip::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--chip-color);
+  flex: 0 0 auto;
+}
+
+/* Larger thumbnails and the category chips only on the roomy review surface. */
+@media (min-width: 720px) {
+  .round-row { grid-template-columns: 160px 1fr auto; align-items: start; }
+  .round-row img { width: 160px; height: 100px; }
+  .round-chips { display: flex; }
+}
+
 .hit { color: var(--accent); font-weight: 600; }
 .miss { color: var(--danger); font-weight: 600; }
 
@@ -430,9 +469,36 @@ table.stats td, table.stats th {
   padding: var(--sp-1) 6px;
   text-align: left;
   border-bottom: 1px solid var(--line);
+  vertical-align: middle;
 }
 table.stats th { color: var(--muted); font-weight: 600; font-size: 12px; }
 table.stats td { font-variant-numeric: tabular-nums; }
+table.stats td.num, table.stats .num { font-family: var(--font-num); }
+table.stats .n { margin-left: 6px; font-size: 11px; }
+
+/* Reliability metric: the printed percentage carries the value; the thin bar
+   beside it is a secondary, recessive encoding. Track is a recessed field, the
+   fill is coloured by category (--c-*) or the teal accent per table. */
+.stats .metric { display: flex; align-items: center; gap: var(--sp-2); }
+.stats .pct-num {
+  font-family: var(--font-num);
+  min-width: 3.5ch;
+  text-align: right;
+}
+.stats .meter {
+  flex: 0 0 48px;
+  height: 6px;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.stats .meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  min-width: 2px;
+}
 
 /* --- Motion preference ---------------------------------------------------- */
 
