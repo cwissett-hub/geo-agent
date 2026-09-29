@@ -29,9 +29,20 @@ async function captureAndAnalyse(feedback) {
   return { ok: true, round };
 }
 
+async function analyseHeld(imageDataUrl, feedback) {
+  const settings = await loadSettings();
+  const round = await analyseImage(imageDataUrl, settings, feedback || []);
+  await chrome.storage.session.set({ lastRound: round });
+  return { ok: true, round };
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg && msg.type === "capture") {
     captureAndAnalyse(msg.feedback).then(sendResponse);
+    return true; // async reply
+  }
+  if (msg && msg.type === "analyse") {
+    analyseHeld(msg.imageDataUrl, msg.feedback).then(sendResponse);
     return true; // async reply
   }
   return false;

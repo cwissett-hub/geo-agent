@@ -358,6 +358,43 @@ button.primary:focus-visible { outline-offset: 3px; }
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+/* Round view layout. Narrow (<720px): single column — screenshot, then the
+   results (guess, clues, summary, actual card) beneath. Wide (>=720px): two
+   columns, the screenshot sticky on the left capped at 60% of the width, the
+   results stacked on the right; with "ask all", provider cards stack in the
+   right column and the shared screenshot's boxes follow the hovered card. */
+.round-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-4);
+  align-items: start;
+}
+
+/* Provider cards always stack vertically inside the results column. */
+.main-col .columns { grid-template-columns: 1fr; }
+
+@media (min-width: 720px) {
+  /* 3fr : 2fr splits the screenshot to 60% (its cap) and results to 40%. */
+  .round-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+  .shot-col {
+    position: sticky;
+    top: 48px;                 /* clears the sticky tab bar */
+    align-self: start;
+  }
+}
+
+/* Coordinates and the guess distance read as the domain's native unit. */
+.coord { font-family: var(--font-num); }
+
+.maps-link { color: var(--accent); text-decoration: none; }
+.maps-link:hover { text-decoration: underline; }
+
+/* Summaries cap at a comfortable measure per the density contract. */
+.summary { max-width: 70ch; }
+
+/* Keyboard focus for clue rows sits just inside the row edge. */
+.clue:focus-visible { outline-offset: -2px; }
+
 /* Manual actual-location entry block (used by later tasks). */
 .manual {
   border-top: 1px solid var(--line);
