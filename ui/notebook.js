@@ -31,33 +31,49 @@ export async function renderNotebook(root, { onOpen, onDeleted }) {
   provider.append(new Option("All providers", ""));
   for (const id of PROVIDER_ORDER) provider.append(new Option(providerLabel(id), id, false, id === filters.provider));
 
-  const rerender = () => {
-    filters.country = country.value;
-    filters.category = category.value;
-    filters.provider = provider.value;
-    renderNotebook(root, { onOpen, onDeleted });
-  };
-  country.oninput = rerender;
-  category.onchange = rerender;
-  provider.onchange = rerender;
   bar.append(country, category, provider);
   root.append(bar);
 
-  const shown = rounds.filter(matches);
-  if (!shown.length) {
-    root.append(Object.assign(document.createElement("p"), {
-      className: "muted",
-      textContent: rounds.length ? "No rounds match the filters." : "No rounds yet. Save one from the Round tab.",
-    }));
-    return;
-  }
+  // The rounds list is the only part that changes on a filter edit; the stats
+  // card and this filter bar stay mounted so the focused input never loses its
+  // caret mid-type. IndexedDB is only re-read when the rounds themselves change
+  // (a delete), via a full renderNotebook.
+  const list = document.createElement("div");
+  root.append(list);
+
+  // A delete re-reads and re-renders everything, since stats and the round set
+  // both change.
   const reload = () => renderNotebook(root, { onOpen, onDeleted });
-  for (const round of shown) {
-    root.append(roundRow(round, {
-      onOpen,
-      onDeleted: async () => { if (onDeleted) await onDeleted(); reload(); },
-    }));
-  }
+
+  const renderList = () => {
+    list.innerHTML = "";
+    const shown = rounds.filter(matches);
+    if (!shown.length) {
+      list.append(Object.assign(document.createElement("p"), {
+        className: "muted",
+        textContent: rounds.length ? "No rounds match the filters." : "No rounds yet. Save one from the Round tab.",
+      }));
+      return;
+    }
+    for (const round of shown) {
+      list.append(roundRow(round, {
+        onOpen,
+        onDeleted: async () => { if (onDeleted) await onDeleted(); reload(); },
+      }));
+    }
+  };
+
+  const applyFilters = () => {
+    filters.country = country.value;
+    filters.category = category.value;
+    filters.provider = provider.value;
+    renderList();
+  };
+  country.oninput = applyFilters;
+  category.onchange = applyFilters;
+  provider.onchange = applyFilters;
+
+  renderList();
 }
 
 function matches(round) {
@@ -169,10 +185,11 @@ function statsCard(s) {
   const provRows = provIds.map((id) => {
     const v = s.byProvider[id];
     const dist = v.meanDistanceKm == null ? "–" : `${Math.round(v.meanDistanceKm)} km`;
+    const regionRate = v.rounds ? v.regionHits / v.rounds : 0;
     return `<tr>
       <td>${escapeHtml(providerLabel(id))}</td>
       <td>${metric(pct(v.rate), v.rate, "var(--accent)")}<span class="muted num n">${v.hits}/${v.rounds}</span></td>
-      <td>${pct(v.rounds ? v.regionHits / v.rounds : 0)} <span class="muted num n">${v.regionHits}/${v.rounds}</span></td>
+      <td>${metric(pct(regionRate), regionRate, "var(--accent)")}<span class="muted num n">${v.regionHits}/${v.rounds}</span></td>
       <td class="num">${dist}</td>
     </tr>`;
   }).join("");
