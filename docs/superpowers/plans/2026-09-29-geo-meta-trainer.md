@@ -1508,13 +1508,13 @@ No Node unit tests here (IndexedDB and `chrome.storage` are browser-only; per th
   - Settings shape:
     ```js
     {
-      active: "anthropic",
+      active: "openai",
       askAll: false,
       effort: "high",           // Anthropic only: low|medium|high|xhigh|max
       providers: {
         gemini:    { key: "", model: "gemini-2.5-flash", enabled: false },
-        anthropic: { key: "", model: "claude-opus-5", enabled: true },
-        openai:    { key: "", model: "gpt-5", enabled: false },
+        anthropic: { key: "", model: "claude-opus-5", enabled: false },
+        openai:    { key: "", model: "gpt-5", enabled: true },
       },
     }
     ```
@@ -1586,13 +1586,13 @@ export function importRounds(rounds) {
 import { PROVIDERS, PROVIDER_ORDER } from "./providers/index.js";
 
 export const DEFAULT_SETTINGS = {
-  active: "anthropic",
+  active: "openai",
   askAll: false,
   effort: "high",
   providers: Object.fromEntries(PROVIDER_ORDER.map((id) => [id, {
     key: "",
     model: PROVIDERS[id].defaultModel,
-    enabled: id === "anthropic",
+    enabled: id === "openai",
   }])),
 };
 
@@ -2217,8 +2217,8 @@ showView("round");
 
 Reload the extension at `chrome://extensions`, open the side panel via the toolbar icon. Expected:
 1. Three tabs switch views.
-2. Settings shows General plus three provider cards, Claude enabled by default with model `claude-opus-5`.
-3. Enter an Anthropic key (from https://console.anthropic.com), Save, reload the panel: the key persists (shown as dots).
+2. Settings shows General plus three provider cards, OpenAI enabled by default with model `gpt-5`.
+3. Enter an OpenAI key (from https://platform.openai.com), Save, reload the panel: the key persists (shown as dots).
 4. Export downloads an empty notebook JSON `{version: 1, rounds: []}`.
 5. Import that same file shows "Imported 0 rounds."
 
@@ -2636,10 +2636,10 @@ paintRound();
 - [ ] **Step 8: Check by hand on a real round**
 
 1. Reload the extension. Open https://www.geoguessr.com and start any game (a free daily challenge or classic round is fine).
-2. With an Anthropic key saved, press Alt+G. Expected: panel opens, shows "Analysing…", then the screenshot with numbered coloured boxes, a Claude card with country, confidence, clue rows with bars, summary and alternatives.
+2. With an OpenAI key saved, press Alt+G. Expected: panel opens, shows "Analysing…", then the screenshot with numbered coloured boxes, a GPT card with country, confidence, clue rows with bars, summary and alternatives.
 3. Hover a clue row: its box glows. Click a box: the list scrolls to its row.
 4. Type the real country (finish the round first to see it), Save round. Expected: the card shows Actual, each clue gets a supporting/misleading tag, the result card shows "Correct country" or "Wrong: it was …".
-5. Remove the Anthropic key in Settings and press Alt+G again. Expected: an error card "No API key for this provider…" with Retry. Add the key back, click Retry: the same screenshot is re-analysed without a new capture (the page content behind can change; the panel image must not).
+5. Remove the OpenAI key in Settings and press Alt+G again. Expected: an error card "No API key for this provider…" with Retry. Add the key back, click Retry: the same screenshot is re-analysed without a new capture (the page content behind can change; the panel image must not).
 6. Toggle "Ask every enabled provider" with two keys configured: two columns appear; only the first provider's boxes are drawn until you hover a clue in the second column.
 
 - [ ] **Step 9: Commit and push**
@@ -2859,8 +2859,8 @@ You bring your own keys. None of the chat subscriptions (ChatGPT Plus, claude.ai
 | Provider | Where to get a key | Cost |
 |---|---|---|
 | Gemini | https://aistudio.google.com/apikey | Free tier with rate limits (personal Google accounts; often blocked on corporate accounts) |
-| Claude (default) | https://console.anthropic.com | Pay as you go, roughly 2-3p per snapshot on Opus 5 |
-| OpenAI | https://platform.openai.com | Pay as you go |
+| Claude | https://console.anthropic.com | Pay as you go, roughly 2-3p per snapshot on Opus 5 |
+| OpenAI (default) | https://platform.openai.com | Pay as you go; make a project API key |
 
 Keys are stored in Chrome's local extension storage on your machine and are
 sent only to their own vendor. Never commit keys to this repository.
