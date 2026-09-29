@@ -2894,3 +2894,152 @@ git commit -m "Write README with install and key instructions
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 git push origin main
 ```
+
+---
+
+### Task 14: GeoGuessr coverage list (execute after Task 4, before Task 11)
+
+Added mid-run at the user's request: the model must only guess countries that actually have Street View coverage used by GeoGuessr. Coverage changes over time, so the list is a hand-maintained constant in one file.
+
+**Files:**
+- Create: `lib/countries.js`
+- Modify: `lib/prompt.js` (SYSTEM_PROMPT gains the list; RESULT_SCHEMA `guess.country` and `alternatives.items.properties.country` become enums of the list)
+- Test: `test/countries.test.js`
+- Modify: `test/prompt.test.js` (add two tests)
+
+**Interfaces:**
+- Produces:
+  - `export const COVERAGE_COUNTRIES` — array of display names, sorted A→Z, unique.
+  - `export function isCovered(name)` — case-insensitive, trimmed match against the list → boolean.
+- Consumed by: `lib/prompt.js` (this task), Task 11 (datalist on the actual-country input).
+
+- [ ] **Step 1: Write the failing tests**
+
+`test/countries.test.js`:
+
+```js
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { COVERAGE_COUNTRIES, isCovered } from "../lib/countries.js";
+
+test("list is sorted and unique", () => {
+  const sorted = [...COVERAGE_COUNTRIES].sort((a, b) => a.localeCompare(b, "en"));
+  assert.deepEqual(COVERAGE_COUNTRIES, sorted);
+  assert.equal(new Set(COVERAGE_COUNTRIES).size, COVERAGE_COUNTRIES.length);
+});
+
+test("list contains well-known covered countries and excludes uncovered ones", () => {
+  for (const c of ["United States", "Japan", "Botswana", "Kyrgyzstan", "Faroe Islands"]) {
+    assert.ok(COVERAGE_COUNTRIES.includes(c), c);
+  }
+  for (const c of ["China", "Cuba", "Iran", "Venezuela", "Paraguay"]) {
+    assert.ok(!COVERAGE_COUNTRIES.includes(c), c);
+  }
+});
+
+test("isCovered ignores case and whitespace", () => {
+  assert.equal(isCovered("  south africa "), true);
+  assert.equal(isCovered("Atlantis"), false);
+});
+```
+
+Add to `test/prompt.test.js`:
+
+```js
+import { COVERAGE_COUNTRIES } from "../lib/countries.js";
+
+test("schema restricts guess and alternative countries to the coverage list", () => {
+  assert.deepEqual(RESULT_SCHEMA.properties.guess.properties.country.enum, COVERAGE_COUNTRIES);
+  assert.deepEqual(RESULT_SCHEMA.properties.alternatives.items.properties.country.enum, COVERAGE_COUNTRIES);
+});
+
+test("system prompt lists the coverage countries", () => {
+  assert.ok(SYSTEM_PROMPT.includes("Botswana"));
+  assert.ok(SYSTEM_PROMPT.includes("Only these countries"));
+});
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `npm test`
+Expected: FAIL, cannot find `../lib/countries.js`; the two new prompt tests fail.
+
+- [ ] **Step 3: Write lib/countries.js**
+
+```js
+// Countries and territories with official Google Street View coverage that
+// appear in GeoGuessr's world map. Hand-maintained: coverage changes, so edit
+// this list when GeoGuessr adds or drops a country. Display names only.
+export const COVERAGE_COUNTRIES = [
+  "Albania", "American Samoa", "Andorra", "Argentina", "Australia", "Austria",
+  "Bangladesh", "Belgium", "Bermuda", "Bhutan", "Bolivia", "Botswana", "Brazil", "Bulgaria",
+  "Cambodia", "Canada", "Chile", "Christmas Island", "Colombia", "Costa Rica", "Croatia", "Curaçao", "Czechia",
+  "Denmark", "Dominican Republic",
+  "Ecuador", "Egypt", "Estonia", "Eswatini",
+  "Faroe Islands", "Finland", "France",
+  "Germany", "Ghana", "Gibraltar", "Greece", "Greenland", "Guam", "Guatemala",
+  "Hong Kong", "Hungary",
+  "Iceland", "India", "Indonesia", "Ireland", "Isle of Man", "Israel", "Italy",
+  "Japan", "Jersey", "Jordan",
+  "Kazakhstan", "Kenya", "Kyrgyzstan",
+  "Laos", "Latvia", "Lebanon", "Lesotho", "Liechtenstein", "Lithuania", "Luxembourg",
+  "Macau", "Madagascar", "Malaysia", "Malta", "Martinique", "Mexico", "Monaco", "Mongolia", "Montenegro",
+  "Netherlands", "New Zealand", "Nigeria", "North Macedonia", "Northern Mariana Islands", "Norway",
+  "Oman",
+  "Palestine", "Panama", "Peru", "Philippines", "Poland", "Portugal", "Puerto Rico",
+  "Qatar",
+  "Réunion", "Romania", "Russia", "Rwanda",
+  "San Marino", "Senegal", "Serbia", "Singapore", "Slovakia", "Slovenia", "South Africa", "South Korea", "Spain", "Sri Lanka", "Sweden", "Switzerland",
+  "Taiwan", "Thailand", "Tunisia", "Turkey",
+  "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "US Virgin Islands",
+  "Vietnam",
+];
+
+const lookup = new Set(COVERAGE_COUNTRIES.map((c) => c.trim().toLowerCase()));
+
+export function isCovered(name) {
+  return lookup.has(String(name ?? "").trim().toLowerCase());
+}
+```
+
+If the sorted-and-unique test fails because of locale ordering (e.g. "Réunion", "US Virgin Islands"), reorder the array to satisfy `localeCompare(..., "en")` rather than weakening the test.
+
+- [ ] **Step 4: Modify lib/prompt.js**
+
+Add at the top:
+
+```js
+import { COVERAGE_COUNTRIES } from "./countries.js";
+```
+
+Change both `country: { type: "string" }` entries in `RESULT_SCHEMA` (inside `guess` and inside `alternatives.items`) to:
+
+```js
+country: { type: "string", enum: COVERAGE_COUNTRIES },
+```
+
+Append to `SYSTEM_PROMPT`, after the existing rules, a new paragraph:
+
+```
+Only these countries and territories have Street View coverage in GeoGuessr, so the answer must be one of them, exactly as written: ${COVERAGE_COUNTRIES.join(", ")}.
+If the scenery seems to point elsewhere, choose the most similar covered country and say so in the summary.
+```
+
+(Insert it with a template literal so the list is generated from the constant, not pasted.)
+
+- [ ] **Step 5: Run tests to verify they pass**
+
+Run: `npm test`
+Expected: all passing, including the two new prompt tests and the existing "schema requires every top-level property" test.
+
+- [ ] **Step 6: Commit and push**
+
+```bash
+git add lib/countries.js lib/prompt.js test/countries.test.js test/prompt.test.js
+git commit -m "Restrict guesses to GeoGuessr coverage countries
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+git push origin main
+```
+
+**Follow-on for Task 11 (already reflected in the design requirements):** the actual-country `<input>` gets `list="country-list"` and a `<datalist id="country-list">` populated from `COVERAGE_COUNTRIES`, so typed answers match the model's spelling and scoring compares like with like. Free text is still allowed.
