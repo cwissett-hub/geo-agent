@@ -2897,15 +2897,17 @@ git push origin main
 
 ---
 
-### Task 14: GeoGuessr coverage list (execute after Task 4, before Task 11)
+### Task 14: GeoGuessr coverage list and sub-country precision (execute after Task 5, before Task 11)
 
-Added mid-run at the user's request: the model must only guess countries that actually have Street View coverage used by GeoGuessr. Coverage changes over time, so the list is a hand-maintained constant in one file.
+Added mid-run at the user's request. Two changes to the model contract:
+1. The model must only guess countries that actually have Street View coverage used by GeoGuessr. Coverage changes over time, so the list is a hand-maintained constant in one file.
+2. The guess must be as precise as possible: `region` (state, province or area), `locality` (nearest town, or null), and best-estimate `lat`/`lng` are always required. The validator (Task 2) stays lenient and still accepts nulls, so old fixtures keep working; the schema and prompt are what force precision.
 
 **Files:**
 - Create: `lib/countries.js`
-- Modify: `lib/prompt.js` (SYSTEM_PROMPT gains the list; RESULT_SCHEMA `guess.country` and `alternatives.items.properties.country` become enums of the list)
+- Modify: `lib/prompt.js` (SYSTEM_PROMPT gains the list and precision rules; RESULT_SCHEMA `guess.country` and `alternatives.items.properties.country` become enums of the list; `guess.region` becomes required string, `guess.lat`/`guess.lng` required numbers, new nullable `guess.locality`)
 - Test: `test/countries.test.js`
-- Modify: `test/prompt.test.js` (add two tests)
+- Modify: `test/prompt.test.js` (replace the "schema marks optional guess fields nullable" test; add three tests)
 
 **Interfaces:**
 - Produces:
@@ -2943,7 +2945,20 @@ test("isCovered ignores case and whitespace", () => {
 });
 ```
 
-Add to `test/prompt.test.js`:
+In `test/prompt.test.js`, replace the existing test `"schema marks optional guess fields nullable"` with:
+
+```js
+test("schema requires region and coordinates, allows null locality", () => {
+  const g = RESULT_SCHEMA.properties.guess;
+  assert.deepEqual(g.required.sort(), ["country", "lat", "lng", "locality", "region"]);
+  assert.deepEqual(g.properties.region, { type: "string" });
+  assert.deepEqual(g.properties.lat, { type: "number" });
+  assert.deepEqual(g.properties.lng, { type: "number" });
+  assert.deepEqual(g.properties.locality.type, ["string", "null"]);
+});
+```
+
+Then add:
 
 ```js
 import { COVERAGE_COUNTRIES } from "../lib/countries.js";
@@ -2956,6 +2971,12 @@ test("schema restricts guess and alternative countries to the coverage list", ()
 test("system prompt lists the coverage countries", () => {
   assert.ok(SYSTEM_PROMPT.includes("Botswana"));
   assert.ok(SYSTEM_PROMPT.includes("Only these countries"));
+});
+
+test("system prompt demands sub-country precision", () => {
+  assert.ok(SYSTEM_PROMPT.includes("region"));
+  assert.ok(SYSTEM_PROMPT.includes("locality"));
+  assert.ok(/lat.*lng/s.test(SYSTEM_PROMPT));
 });
 ```
 
@@ -3018,6 +3039,34 @@ Change both `country: { type: "string" }` entries in `RESULT_SCHEMA` (inside `gu
 country: { type: "string", enum: COVERAGE_COUNTRIES },
 ```
 
+Replace the `guess` object in `RESULT_SCHEMA` with:
+
+```js
+guess: {
+  type: "object",
+  additionalProperties: false,
+  required: ["country", "region", "locality", "lat", "lng"],
+  properties: {
+    country: { type: "string", enum: COVERAGE_COUNTRIES },
+    region: { type: "string" },
+    locality: { type: ["string", "null"] },
+    lat: { type: "number" },
+    lng: { type: "number" },
+  },
+},
+```
+
+In `SYSTEM_PROMPT`, replace the rule line
+`- guess.country is required. Add region, lat and lng when you have a real basis for them, otherwise null.`
+with:
+
+```
+- guess.country is required and must come from the coverage list below.
+- guess.region is required: the state, province, oblast, prefecture or well-known area you think this is in. Never leave it generic like "unknown"; commit to your best guess.
+- guess.locality: the nearest town or city if you can name one, otherwise null.
+- guess.lat and guess.lng are required: your single best estimate of the coordinates, in decimal degrees. A best estimate beats no estimate; GeoGuessr scores by distance.
+```
+
 Append to `SYSTEM_PROMPT`, after the existing rules, a new paragraph:
 
 ```
@@ -3025,7 +3074,22 @@ Only these countries and territories have Street View coverage in GeoGuessr, so 
 If the scenery seems to point elsewhere, choose the most similar covered country and say so in the summary.
 ```
 
-(Insert it with a template literal so the list is generated from the constant, not pasted.)
+(Insert both with template literals so the list is generated from the constant, not pasted.)
+
+Also update `lib/validate.js` so the cleaned guess carries `locality`: in the returned `guess` object add
+`locality: typeof g.locality === "string" && g.locality.trim() ? g.locality.trim() : null,`
+and add to `test/validate.test.js`:
+
+```js
+test("locality is passed through or null", () => {
+  const g = good(); g.guess.locality = " Calama ";
+  assert.equal(validateResult(g).guess.locality, "Calama");
+  delete g.guess.locality;
+  assert.equal(validateResult(g).guess.locality, null);
+});
+```
+
+Add `lib/validate.js` and `test/validate.test.js` to the commit.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
@@ -3043,3 +3107,192 @@ git push origin main
 ```
 
 **Follow-on for Task 11 (already reflected in the design requirements):** the actual-country `<input>` gets `list="country-list"` and a `<datalist id="country-list">` populated from `COVERAGE_COUNTRIES`, so typed answers match the model's spelling and scoring compares like with like. Free text is still allowed.
+
+---
+
+### Task 15: Distance and region scoring (execute after Task 14, before Task 11)
+
+Added mid-run at the user's request: GeoGuessr scores by distance, so a country hit is not enough. When the user enters coordinates, score the great-circle distance; when they enter a region, score a region hit. Surface both in the notebook stats.
+
+**Files:**
+- Modify: `lib/score.js`
+- Modify: `lib/notebook-logic.js`
+- Test: `test/score.test.js` (add tests)
+- Test: `test/notebook-logic.test.js` (add tests, update one assertion)
+
+**Interfaces:**
+- Consumes: existing `normaliseName`, `isHit`, `scoreClues`, and the module-private word-boundary `mentions(text, name)` in `lib/score.js`; `scoreRound` callers in `lib/notebook-logic.js`.
+- Produces:
+  - `export function distanceKm(a, b)` — `a`, `b` are `{lat, lng}`; returns great-circle distance in km (haversine, Earth radius 6371 km), or `null` if any coordinate is not a finite number.
+  - `export function isRegionHit(result, actual)` — true if `actual.region` is non-empty and either normalised region equals the other or one contains the other at a word boundary (reuse `mentions` both ways). False when `actual.region` is null.
+  - `scoreRound(result, actual)` now returns `{hit, regionHit, distanceKm, verdicts}`.
+  - `stats(rounds).byProvider[id]` gains `regionHits` (count) and `meanDistanceKm` (mean over results with a numeric distance, or `null` when none).
+  - `feedbackLines` includes regions when present: `"Guessed Chile, Atacama (top clue: …); actual Peru, Arequipa"`. Region parts are omitted when null, so the existing fixtures produce the same lines as before.
+
+- [ ] **Step 1: Add failing tests to test/score.test.js**
+
+```js
+import { distanceKm, isRegionHit } from "../lib/score.js";
+
+test("distanceKm London to Paris is about 343 km", () => {
+  const d = distanceKm({ lat: 51.5074, lng: -0.1278 }, { lat: 48.8566, lng: 2.3522 });
+  assert.ok(Math.abs(d - 343.5) < 2, String(d));
+});
+
+test("distanceKm is zero for the same point and null when a coordinate is missing", () => {
+  assert.equal(distanceKm({ lat: 10, lng: 20 }, { lat: 10, lng: 20 }), 0);
+  assert.equal(distanceKm({ lat: 10, lng: 20 }, { lat: null, lng: 20 }), null);
+  assert.equal(distanceKm({ lat: NaN, lng: 20 }, { lat: 1, lng: 2 }), null);
+});
+
+test("isRegionHit compares regions loosely", () => {
+  const r = { ...result, guess: { ...result.guess, region: "Atacama Region" } };
+  assert.equal(isRegionHit(r, { country: "Chile", region: "atacama", lat: null, lng: null }), true);
+  assert.equal(isRegionHit(r, { country: "Chile", region: "Antofagasta", lat: null, lng: null }), false);
+  assert.equal(isRegionHit(r, { country: "Chile", region: null, lat: null, lng: null }), false);
+});
+
+test("scoreRound reports region hit and distance", () => {
+  const r = { ...result, guess: { country: "Chile", region: "Atacama", locality: null, lat: -23.6, lng: -70.4 } };
+  const s = scoreRound(r, { country: "Chile", region: "Atacama", lat: -23.65, lng: -70.4 });
+  assert.equal(s.hit, true);
+  assert.equal(s.regionHit, true);
+  assert.ok(s.distanceKm > 5 && s.distanceKm < 6, String(s.distanceKm));
+  const t = scoreRound(r, { country: "Chile", region: null, lat: null, lng: null });
+  assert.equal(t.regionHit, false);
+  assert.equal(t.distanceKm, null);
+});
+```
+
+(`result` is the fixture already defined at the top of the test file. Merge the import into the existing import line.)
+
+- [ ] **Step 2: Add failing tests to test/notebook-logic.test.js**
+
+```js
+test("stats report region hits and mean distance per provider", () => {
+  const withCoords = (lat, lng) => ({
+    ...res("Chile"), guess: { country: "Chile", region: "Atacama", locality: null, lat, lng },
+  });
+  const a = applyActual(newRound("d", [{ provider: "openai", model: "m", result: withCoords(-23.6, -70.4), error: null }]),
+    { country: "Chile", region: "Atacama", lat: -23.6, lng: -70.4 });           // 0 km, region hit
+  const b = applyActual(newRound("d", [{ provider: "openai", model: "m", result: withCoords(-23.6, -70.4), error: null }]),
+    { country: "Chile", region: "Antofagasta", lat: -22.7, lng: -70.4 });       // ~100 km, region miss
+  const c = applyActual(newRound("d", [{ provider: "openai", model: "m", result: withCoords(-23.6, -70.4), error: null }]),
+    { country: "Chile", region: null, lat: null, lng: null });                  // no distance
+  const s = stats([a, b, c]);
+  assert.equal(s.byProvider.openai.rounds, 3);
+  assert.equal(s.byProvider.openai.regionHits, 1);
+  assert.ok(Math.abs(s.byProvider.openai.meanDistanceKm - 50) < 2, String(s.byProvider.openai.meanDistanceKm));
+});
+
+test("stats meanDistanceKm is null when no round has coordinates", () => {
+  const r = applyActual(newRound("d", [{ provider: "openai", model: "m", result: res("Chile"), error: null }]),
+    { country: "Chile", region: null, lat: null, lng: null });
+  assert.equal(stats([r]).byProvider.openai.meanDistanceKm, null);
+});
+
+test("feedbackLines include regions when known", () => {
+  const r = applyActual(newRound("d", [{ provider: "openai", model: "m",
+    result: { ...res("Chile"), guess: { country: "Chile", region: "Atacama", locality: null, lat: null, lng: null } }, error: null }]),
+    { country: "Peru", region: "Arequipa", lat: null, lng: null });
+  assert.deepEqual(feedbackLines([r]), ["Guessed Chile, Atacama (top clue: yellow centre line); actual Peru, Arequipa"]);
+});
+```
+
+Also update the existing assertion in `stats aggregates by category and provider` from
+`assert.deepEqual(s.byProvider.gemini, { hits: 1, rounds: 2, rate: 0.5 });` to
+`assert.deepEqual(s.byProvider.gemini, { hits: 1, rounds: 2, rate: 0.5, regionHits: 0, meanDistanceKm: null });`.
+
+- [ ] **Step 3: Run tests to verify they fail**
+
+Run: `npm test`
+Expected: the seven new tests fail (missing exports / missing fields) and the updated assertion fails; everything else still passes.
+
+- [ ] **Step 4: Extend lib/score.js**
+
+Add:
+
+```js
+const EARTH_RADIUS_KM = 6371;
+
+export function distanceKm(a, b) {
+  const vals = [a && a.lat, a && a.lng, b && b.lat, b && b.lng];
+  if (!vals.every(Number.isFinite)) return null;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+export function isRegionHit(result, actual) {
+  if (!actual.region || !normaliseName(actual.region)) return false;
+  const g = result.guess.region || "";
+  return normaliseName(g) === normaliseName(actual.region)
+    || mentions(g, actual.region)
+    || mentions(actual.region, g);
+}
+```
+
+and change `scoreRound` to:
+
+```js
+export function scoreRound(result, actual) {
+  return {
+    hit: isHit(result, actual),
+    regionHit: isRegionHit(result, actual),
+    distanceKm: distanceKm(result.guess, actual),
+    verdicts: scoreClues(result, actual),
+  };
+}
+```
+
+- [ ] **Step 5: Extend lib/notebook-logic.js**
+
+In `feedbackLines`, build the line as:
+
+```js
+const place = (country, region) => (region ? `${country}, ${region}` : country);
+lines.push(`Guessed ${place(r.result.guess.country, r.result.guess.region)} (top clue: ${topClue(r.result).observation}); actual ${place(round.actual.country, round.actual.region)}`);
+```
+
+In `stats`, initialise each provider entry as
+`{ hits: 0, rounds: 0, rate: 0, regionHits: 0, meanDistanceKm: null, _distances: [] }`,
+and inside the per-result loop add:
+
+```js
+if (s.regionHit) p.regionHits++;
+if (Number.isFinite(s.distanceKm)) p._distances.push(s.distanceKm);
+```
+
+After the loop, when computing rates:
+
+```js
+for (const p of Object.values(byProvider)) {
+  p.rate = p.rounds ? p.hits / p.rounds : 0;
+  p.meanDistanceKm = p._distances.length ? p._distances.reduce((x, y) => x + y, 0) / p._distances.length : null;
+  delete p._distances;
+}
+```
+
+- [ ] **Step 6: Run tests to verify they pass**
+
+Run: `npm test`
+Expected: all passing.
+
+- [ ] **Step 7: Commit and push**
+
+```bash
+git add lib/score.js lib/notebook-logic.js test/score.test.js test/notebook-logic.test.js
+git commit -m "Score distance and region hits
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+git push origin main
+```
+
+**Follow-on for Tasks 11 and 12 (binding):**
+- Round view shows `country, region` as the headline, `locality` beneath when present, the coordinates, and an "Open in Google Maps" link to `https://www.google.com/maps?q=<lat>,<lng>` (opens in a new tab; no map is embedded).
+- After the actual location is saved, the result card shows the distance in km (one decimal under 10 km, whole km otherwise) when available, and "Region: correct / wrong" when the user gave a region.
+- Notebook stats provider table gains two columns: region hit rate and mean distance.
+- The actual-location form keeps country, region and coordinates inputs; the country input has the `COVERAGE_COUNTRIES` datalist from Task 14.
