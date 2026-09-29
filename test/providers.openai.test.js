@@ -47,3 +47,11 @@ test("parseResponse throws unparseable on bad json", () => {
   assert.throws(() => openai.parseResponse({ choices: [{ message: { content: "nah" } }] }),
     (e) => e.code === "unparseable" && e.raw === "nah");
 });
+
+test("buildRequest sends reasoning_effort only when an effort is given", () => {
+  const withEffort = JSON.parse(openai.buildRequest({ key: "k", model: "gpt-5", imageDataUrl: img, feedbackLines: [], effort: "low" }).init.body);
+  assert.equal(withEffort.reasoning_effort, "low");
+  const without = JSON.parse(openai.buildRequest({ key: "k", model: "gpt-5", imageDataUrl: img, feedbackLines: [] }).init.body);
+  assert.equal("reasoning_effort" in without, false);
+  assert.deepEqual(openai.effortOptions, ["minimal", "low", "medium", "high"]);
+});

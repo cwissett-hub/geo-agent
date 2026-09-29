@@ -688,7 +688,7 @@ label.row input[type="checkbox"]:checked::after { transform: translateX(14px); b
 
 /* Provider cards: on a wide surface, key and model sit side by side. */
 @media (min-width: 720px) {
-  #view-settings .card .fields { display: grid; grid-template-columns: 2fr 1fr; gap: 0 var(--sp-4); }
+  #view-settings .card .fields { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0 var(--sp-4); }
 }
 
 /* --- Notebook layout ------------------------------------------------------ */

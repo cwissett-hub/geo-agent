@@ -4,7 +4,6 @@ import { allRounds, clearRounds, importRounds } from "../lib/notebook-db.js";
 import { serialiseRounds, parseImport } from "../lib/notebook-logic.js";
 import { refreshFeedback } from "../sidepanel.js";
 
-const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 
 export async function renderSettings(root) {
   const s = await loadSettings();
@@ -15,7 +14,6 @@ export async function renderSettings(root) {
     checkbox("manual", "Manual mode: capture only, no API call. Copy the image and prompt into a chat, paste the reply back.", s.manual),
     field("Active provider", select("active", PROVIDER_ORDER.map((id) => [id, PROVIDERS[id].label]), s.active)),
     checkbox("askAll", "Ask every enabled provider with a key (side by side)", s.askAll),
-    field("Claude effort", select("effort", EFFORTS.map((e) => [e, e]), s.effort)),
   );
   root.append(general);
 
@@ -28,6 +26,11 @@ export async function renderSettings(root) {
       field("API key", input(`key-${id}`, p.key, PROVIDERS[id].keyHint, "password")),
       field("Model", input(`model-${id}`, p.model, PROVIDERS[id].defaultModel)),
     );
+    // Effort only where the provider has such a control, with its own options.
+    const opts = PROVIDERS[id].effortOptions;
+    if (opts) {
+      fields.append(field("Effort", select(`effort-${id}`, opts.map((e) => [e, e]), p.effort || PROVIDERS[id].defaultEffort)));
+    }
     c.append(checkbox(`enabled-${id}`, "Enabled", p.enabled), fields);
     root.append(c);
   }
@@ -40,12 +43,15 @@ export async function renderSettings(root) {
       manual: root.querySelector("#manual").checked,
       active: root.querySelector("#active").value,
       askAll: root.querySelector("#askAll").checked,
-      effort: root.querySelector("#effort").value,
-      providers: Object.fromEntries(PROVIDER_ORDER.map((id) => [id, {
-        enabled: root.querySelector(`#enabled-${id}`).checked,
-        key: root.querySelector(`#key-${id}`).value.trim(),
-        model: root.querySelector(`#model-${id}`).value.trim() || PROVIDERS[id].defaultModel,
-      }])),
+      providers: Object.fromEntries(PROVIDER_ORDER.map((id) => {
+        const effortEl = root.querySelector(`#effort-${id}`);
+        return [id, {
+          enabled: root.querySelector(`#enabled-${id}`).checked,
+          key: root.querySelector(`#key-${id}`).value.trim(),
+          model: root.querySelector(`#model-${id}`).value.trim() || PROVIDERS[id].defaultModel,
+          effort: effortEl ? effortEl.value : null,
+        }];
+      })),
     };
     // First key saved for the active provider: leave manual mode automatically.
     const hadKey = Boolean(s.providers[next.active] && s.providers[next.active].key);

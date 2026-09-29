@@ -4,9 +4,9 @@ import { providersToAsk, analyseImage } from "../lib/analyse.js";
 import { ProviderError } from "../lib/providers/common.js";
 
 const settings = {
-  active: "anthropic", askAll: false, effort: "high",
+  active: "anthropic", askAll: false,
   providers: {
-    gemini: { key: "g", model: "gm", enabled: true },
+    gemini: { key: "g", model: "gm", enabled: true, effort: "high" },
     anthropic: { key: "a", model: "am", enabled: true },
     openai: { key: "", model: "om", enabled: true },
   },
@@ -56,4 +56,16 @@ test("manual mode asks no provider and yields a round with no results", async ()
   assert.equal(calls, 0);
   assert.deepEqual(round.results, []);
   assert.equal(round.imageDataUrl, "data:image/png;base64,AA");
+});
+
+test("analyseImage passes each provider its own effort, falling back to the adapter default", async () => {
+  const calls = {};
+  const fake = async (adapter, opts) => { calls[adapter.id] = opts.effort; return goodResult; };
+  const s = { ...settings, askAll: true, providers: {
+    gemini: { key: "g", model: "gm", enabled: true },
+    anthropic: { key: "a", model: "am", enabled: true, effort: "max" },
+    openai: { key: "o", model: "om", enabled: true },
+  } };
+  await analyseImage("d", s, [], fake);
+  assert.deepEqual(calls, { gemini: null, anthropic: "max", openai: "medium" });
 });
