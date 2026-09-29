@@ -8,8 +8,9 @@ const img = "data:image/png;base64,QUJD";
 test("toGeminiSchema converts nullable unions and strips additionalProperties", () => {
   const s = toGeminiSchema(RESULT_SCHEMA);
   assert.equal(s.additionalProperties, undefined);
-  assert.deepEqual(s.properties.guess.properties.region, { type: "string", nullable: true });
-  assert.deepEqual(s.properties.guess.properties.lat, { type: "number", nullable: true });
+  assert.deepEqual(s.properties.guess.properties.region, { type: "string" });
+  assert.deepEqual(s.properties.guess.properties.lat, { type: "number" });
+  assert.deepEqual(s.properties.guess.properties.locality, { type: "string", nullable: true });
   assert.deepEqual(s.properties.clues.items.properties.category.enum, CATEGORIES);
   assert.equal(s.properties.clues.items.additionalProperties, undefined);
   assert.deepEqual(s.required, RESULT_SCHEMA.required);

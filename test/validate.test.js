@@ -80,3 +80,10 @@ test("duplicate clue ids are renumbered", () => {
   const g = good(); g.clues[1].id = 1;
   assert.deepEqual(validateResult(g).clues.map((c) => c.id), [1, 2]);
 });
+
+test("locality is passed through or null", () => {
+  const g = good(); g.guess.locality = " Calama ";
+  assert.equal(validateResult(g).guess.locality, "Calama");
+  delete g.guess.locality;
+  assert.equal(validateResult(g).guess.locality, null);
+});

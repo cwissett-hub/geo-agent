@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CATEGORIES, RESULT_SCHEMA, SYSTEM_PROMPT, buildUserText } from "../lib/prompt.js";
+import { COVERAGE_COUNTRIES } from "../lib/countries.js";
 
 test("categories are the fixed list in spec order", () => {
   assert.deepEqual(CATEGORIES, [
@@ -21,10 +22,29 @@ test("schema requires every top-level property and forbids extras", () => {
     ["box", "category", "id", "inference", "observation", "weight"]);
 });
 
-test("schema marks optional guess fields nullable", () => {
-  const g = RESULT_SCHEMA.properties.guess.properties;
-  assert.deepEqual(g.region.type, ["string", "null"]);
-  assert.deepEqual(g.lat.type, ["number", "null"]);
+test("schema requires region and coordinates, allows null locality", () => {
+  const g = RESULT_SCHEMA.properties.guess;
+  assert.deepEqual(g.required.sort(), ["country", "lat", "lng", "locality", "region"]);
+  assert.deepEqual(g.properties.region, { type: "string" });
+  assert.deepEqual(g.properties.lat, { type: "number" });
+  assert.deepEqual(g.properties.lng, { type: "number" });
+  assert.deepEqual(g.properties.locality.type, ["string", "null"]);
+});
+
+test("schema restricts guess and alternative countries to the coverage list", () => {
+  assert.deepEqual(RESULT_SCHEMA.properties.guess.properties.country.enum, COVERAGE_COUNTRIES);
+  assert.deepEqual(RESULT_SCHEMA.properties.alternatives.items.properties.country.enum, COVERAGE_COUNTRIES);
+});
+
+test("system prompt lists the coverage countries", () => {
+  assert.ok(SYSTEM_PROMPT.includes("Botswana"));
+  assert.ok(SYSTEM_PROMPT.includes("Only these countries"));
+});
+
+test("system prompt demands sub-country precision", () => {
+  assert.ok(SYSTEM_PROMPT.includes("region"));
+  assert.ok(SYSTEM_PROMPT.includes("locality"));
+  assert.ok(/lat.*lng/s.test(SYSTEM_PROMPT));
 });
 
 test("system prompt names every category", () => {
