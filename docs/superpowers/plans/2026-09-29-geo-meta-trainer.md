@@ -998,7 +998,7 @@ git push origin main
   - `export const gemini` adapter (`id: "gemini"`, `label: "Gemini (Google)"`, `defaultModel: "gemini-2.5-flash"`, `keyHint: "AIza..."`).
 - Produces (index):
   - `export const PROVIDERS` — `{anthropic, openai, gemini}` keyed by id.
-  - `export const PROVIDER_ORDER` — `["gemini", "anthropic", "openai"]` (display order; Gemini first because it has a free tier).
+  - `export const PROVIDER_ORDER` — `["anthropic", "openai", "gemini"]` (display order; Claude is the default provider).
   - `export async function callProvider(adapter, opts, fetchImpl = fetch)` — `opts` is the `buildRequest` argument. Throws `ProviderError("no_key")` if `opts.key` is empty. Performs the fetch, maps non-2xx via `mapHttpError`, network failures to `ProviderError("network")`, then returns `adapter.parseResponse(await res.json())`. If the body is not JSON, throws `unparseable` with raw text.
 
 - [ ] **Step 1: Write the failing test for gemini.js**
@@ -1085,7 +1085,7 @@ function fakeFetch(status, body) {
 }
 
 test("registry has all three providers in display order", () => {
-  assert.deepEqual(PROVIDER_ORDER, ["gemini", "anthropic", "openai"]);
+  assert.deepEqual(PROVIDER_ORDER, ["anthropic", "openai", "gemini"]);
   for (const id of PROVIDER_ORDER) assert.equal(PROVIDERS[id].id, id);
 });
 
@@ -1208,7 +1208,7 @@ import { gemini } from "./gemini.js";
 import { ProviderError, mapHttpError } from "./common.js";
 
 export const PROVIDERS = { anthropic, openai, gemini };
-export const PROVIDER_ORDER = ["gemini", "anthropic", "openai"];
+export const PROVIDER_ORDER = ["anthropic", "openai", "gemini"];
 
 export async function callProvider(adapter, opts, fetchImpl = fetch) {
   if (!opts.key || !String(opts.key).trim()) {
@@ -1508,12 +1508,12 @@ No Node unit tests here (IndexedDB and `chrome.storage` are browser-only; per th
   - Settings shape:
     ```js
     {
-      active: "gemini",
+      active: "anthropic",
       askAll: false,
       effort: "high",           // Anthropic only: low|medium|high|xhigh|max
       providers: {
-        gemini:    { key: "", model: "gemini-2.5-flash", enabled: true },
-        anthropic: { key: "", model: "claude-opus-5", enabled: false },
+        gemini:    { key: "", model: "gemini-2.5-flash", enabled: false },
+        anthropic: { key: "", model: "claude-opus-5", enabled: true },
         openai:    { key: "", model: "gpt-5", enabled: false },
       },
     }
@@ -1586,13 +1586,13 @@ export function importRounds(rounds) {
 import { PROVIDERS, PROVIDER_ORDER } from "./providers/index.js";
 
 export const DEFAULT_SETTINGS = {
-  active: "gemini",
+  active: "anthropic",
   askAll: false,
   effort: "high",
   providers: Object.fromEntries(PROVIDER_ORDER.map((id) => [id, {
     key: "",
     model: PROVIDERS[id].defaultModel,
-    enabled: id === "gemini",
+    enabled: id === "anthropic",
   }])),
 };
 
@@ -1667,7 +1667,7 @@ import { providersToAsk, analyseImage } from "../lib/analyse.js";
 import { ProviderError } from "../lib/providers/common.js";
 
 const settings = {
-  active: "gemini", askAll: false, effort: "high",
+  active: "anthropic", askAll: false, effort: "high",
   providers: {
     gemini: { key: "g", model: "gm", enabled: true },
     anthropic: { key: "a", model: "am", enabled: true },
@@ -1681,7 +1681,7 @@ const goodResult = {
 };
 
 test("providersToAsk returns active only when askAll is off", () => {
-  assert.deepEqual(providersToAsk(settings), ["gemini"]);
+  assert.deepEqual(providersToAsk(settings), ["anthropic"]);
 });
 
 test("providersToAsk returns enabled providers with keys when askAll is on", () => {
@@ -2217,8 +2217,8 @@ showView("round");
 
 Reload the extension at `chrome://extensions`, open the side panel via the toolbar icon. Expected:
 1. Three tabs switch views.
-2. Settings shows General plus three provider cards, Gemini enabled by default with model `gemini-2.5-flash`.
-3. Enter a Gemini key (from https://aistudio.google.com/apikey), Save, reload the panel: the key persists (shown as dots).
+2. Settings shows General plus three provider cards, Claude enabled by default with model `claude-opus-5`.
+3. Enter an Anthropic key (from https://console.anthropic.com), Save, reload the panel: the key persists (shown as dots).
 4. Export downloads an empty notebook JSON `{version: 1, rounds: []}`.
 5. Import that same file shows "Imported 0 rounds."
 
@@ -2636,10 +2636,10 @@ paintRound();
 - [ ] **Step 8: Check by hand on a real round**
 
 1. Reload the extension. Open https://www.geoguessr.com and start any game (a free daily challenge or classic round is fine).
-2. With a Gemini key saved, press Alt+G. Expected: panel opens, shows "Analysing…", then the screenshot with numbered coloured boxes, a Gemini card with country, confidence, clue rows with bars, summary and alternatives.
+2. With an Anthropic key saved, press Alt+G. Expected: panel opens, shows "Analysing…", then the screenshot with numbered coloured boxes, a Claude card with country, confidence, clue rows with bars, summary and alternatives.
 3. Hover a clue row: its box glows. Click a box: the list scrolls to its row.
 4. Type the real country (finish the round first to see it), Save round. Expected: the card shows Actual, each clue gets a supporting/misleading tag, the result card shows "Correct country" or "Wrong: it was …".
-5. Remove the Gemini key in Settings and press Alt+G again. Expected: an error card "No API key for this provider…" with Retry. Add the key back, click Retry: the same screenshot is re-analysed without a new capture (the page content behind can change; the panel image must not).
+5. Remove the Anthropic key in Settings and press Alt+G again. Expected: an error card "No API key for this provider…" with Retry. Add the key back, click Retry: the same screenshot is re-analysed without a new capture (the page content behind can change; the panel image must not).
 6. Toggle "Ask every enabled provider" with two keys configured: two columns appear; only the first provider's boxes are drawn until you hover a clue in the second column.
 
 - [ ] **Step 9: Commit and push**
@@ -2827,7 +2827,7 @@ Expected: all passing, zero failures.
 A self-contained Chrome extension for learning GeoGuessr metas.
 
 Press **Alt+G** during a round. The extension screenshots what you see, asks a
-vision model (Gemini, Claude or OpenAI) where it is, and shows:
+vision model (Claude, OpenAI or Gemini) where it is, and shows:
 
 - the guess and its confidence,
 - every clue it used, drawn as a numbered box on the screenshot,
@@ -2858,8 +2858,8 @@ You bring your own keys. None of the chat subscriptions (ChatGPT Plus, claude.ai
 
 | Provider | Where to get a key | Cost |
 |---|---|---|
-| Gemini (default) | https://aistudio.google.com/apikey | Free tier with rate limits |
-| Claude | https://console.anthropic.com | Pay as you go, roughly 2-3p per snapshot on Opus 5 |
+| Gemini | https://aistudio.google.com/apikey | Free tier with rate limits (personal Google accounts; often blocked on corporate accounts) |
+| Claude (default) | https://console.anthropic.com | Pay as you go, roughly 2-3p per snapshot on Opus 5 |
 | OpenAI | https://platform.openai.com | Pay as you go |
 
 Keys are stored in Chrome's local extension storage on your machine and are
