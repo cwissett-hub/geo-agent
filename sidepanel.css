@@ -1,0 +1,404 @@
+/* Geo Meta Trainer side panel
+   Cartographic field-instrument look: quiet dark slate chrome so the fixed
+   category clue colours (--c-*) stay the loudest thing on screen. One accent
+   (map-teal). Hairline panels, sticky instrument tab bar, reticle wordmark. */
+
+:root {
+  color-scheme: dark;
+
+  /* Base palette (fixed by spec) */
+  --bg: #14161a;
+  --panel: #1e2126;
+  --text: #e8e9eb;
+  --muted: #9aa0a8;
+  --accent: #4fc3a1;
+
+  /* Derived chrome */
+  --line: #2a2e35;
+  --panel-2: #262a31;         /* row / clue hover */
+  --field: #181b20;           /* inputs, recessed inside a panel */
+  --accent-ink: #06251d;      /* text on the accent fill */
+  --accent-soft: #4fc3a133;   /* focus ring / faint accent wash */
+  --danger: #ff8a8a;
+
+  /* Category clue colours — the single source of truth everywhere
+     (boxes, clue numbers, weight bars, stats meters). */
+  --c-road_markings: #f5c542;
+  --c-signage_script: #4fa3f7;
+  --c-driving_side: #f77f4f;
+  --c-vegetation_landscape: #6fcf6f;
+  --c-architecture: #c58cf5;
+  --c-vehicles_plates: #f56fa1;
+  --c-bollards_poles: #5fe0e0;
+  --c-camera_car_meta: #ffffff;
+  --c-soil_climate: #c9a06a;
+  --c-other: #9aa0a8;
+
+  /* Type */
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-num: ui-monospace, "Cascadia Mono", "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+
+  /* Spacing rhythm (8px base) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.45;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Density bump on the roomy tab / big-monitor surface */
+@media (min-width: 1000px) {
+  body { font-size: 15px; }
+}
+
+/* --- App bar / wordmark --------------------------------------------------- */
+
+.app-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+/* Reticle mark: a guess-pin crosshair drawn in CSS, not an emoji. */
+.wordmark::before {
+  content: "";
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, var(--accent) 0 1.5px, transparent 2px);
+  flex: 0 0 auto;
+}
+
+/* --- Tab selector --------------------------------------------------------- */
+
+.tabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 2px;
+  padding: 0 var(--sp-3);
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+
+.tabs button {
+  flex: 1;
+  padding: 10px 8px;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.tabs button:hover { color: var(--text); }
+
+.tabs button.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.tabs button.icon {
+  flex: 0 0 40px;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.tabs button.icon:hover { color: var(--accent); }
+
+/* --- Views ---------------------------------------------------------------- */
+
+main { display: block; }
+
+.view { display: none; padding: var(--sp-4); }
+.view.active { display: block; }
+
+/* Settings is a form: keep it a comfortable, centred reading column even when
+   the panel is dragged out to a full 4K tab. */
+#view-settings {
+  max-width: 680px;
+  margin-inline: auto;
+}
+
+/* --- Cards ---------------------------------------------------------------- */
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+
+.card h3 {
+  margin: 0 0 var(--sp-3);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+/* --- Form controls -------------------------------------------------------- */
+
+label {
+  display: block;
+  margin: var(--sp-3) 0 var(--sp-1);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+input, select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--field);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+input::placeholder { color: #656b74; }
+
+input:hover, select:hover { border-color: #3a3f48; }
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Checkbox rows keep the label text bright (they read as statements, not field
+   captions) and give the box the accent tick. */
+label.row {
+  margin: var(--sp-3) 0 0;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+label.row input[type="checkbox"] {
+  width: auto;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* --- Buttons -------------------------------------------------------------- */
+
+button.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 0;
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 120ms ease, box-shadow 120ms ease;
+}
+
+button.primary:hover { filter: brightness(1.08); }
+
+button.secondary {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  padding: 7px 13px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+button.secondary:hover {
+  border-color: #3a3f48;
+  background: var(--panel-2);
+}
+
+/* The standalone Save button sits between the provider cards and the notebook
+   card; give it room so it does not crowd either. */
+#view-settings > button.primary {
+  display: inline-block;
+  margin: var(--sp-1) 0 var(--sp-5);
+}
+
+/* Keyboard focus is visible everywhere; mouse focus stays quiet. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+button.primary:focus-visible { outline-offset: 3px; }
+
+/* --- Utility / shared ----------------------------------------------------- */
+
+.muted { color: var(--muted); }
+
+.error {
+  background: #3a1e1e;
+  color: #ffb4b4;
+  border: 1px solid #532a2a;
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+}
+
+.row {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* --- Round view ----------------------------------------------------------- */
+
+.shot { position: relative; width: 100%; }
+.shot img { display: block; width: 100%; border-radius: var(--radius-sm); }
+
+.box {
+  position: absolute;
+  border: 2px solid var(--box-color);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px #0008;
+  transition: box-shadow 120ms ease;
+}
+.box.active { box-shadow: 0 0 0 3px var(--box-color), 0 0 12px var(--box-color); }
+.box .tag {
+  position: absolute;
+  top: -18px;
+  left: -2px;
+  background: var(--box-color);
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 5px;
+  border-radius: 3px;
+}
+
+.clue {
+  display: grid;
+  grid-template-columns: 22px 1fr 48px;
+  gap: var(--sp-2);
+  align-items: start;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.clue.active, .clue:hover { background: var(--panel-2); }
+.clue .num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--box-color);
+  color: #000;
+  font-weight: 700;
+  text-align: center;
+  font-size: 12px;
+}
+.clue .bar {
+  height: 6px;
+  background: var(--box-color);
+  border-radius: 3px;
+  margin-top: 4px;
+}
+.clue .pct {
+  text-align: right;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: var(--font-num);
+}
+.clue .cat {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.verdict-supporting { color: var(--accent); }
+.verdict-misleading { color: var(--danger); }
+
+.columns {
+  display: grid;
+  gap: var(--sp-3);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+/* Manual actual-location entry block (used by later tasks). */
+.manual {
+  border-top: 1px solid var(--line);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+}
+
+/* --- Notebook ------------------------------------------------------------- */
+
+.round-row {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  gap: var(--sp-2);
+  align-items: center;
+  padding: var(--sp-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.round-row:hover { background: var(--panel-2); }
+.round-row img {
+  width: 64px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.hit { color: var(--accent); font-weight: 600; }
+.miss { color: var(--danger); font-weight: 600; }
+
+table.stats { width: 100%; border-collapse: collapse; }
+table.stats td, table.stats th {
+  padding: var(--sp-1) 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+table.stats th { color: var(--muted); font-weight: 600; font-size: 12px; }
+table.stats td { font-variant-numeric: tabular-nums; }
+
+/* --- Motion preference ---------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}

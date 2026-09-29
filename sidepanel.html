@@ -1,3 +1,26 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><title>Geo Meta Trainer</title></head>
-<body><p>Loading…</p></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Geo Meta Trainer</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <header class="app-bar">
+    <span class="wordmark">Geo Meta Trainer</span>
+  </header>
+  <nav class="tabs">
+    <button data-view="round" class="active">Round</button>
+    <button data-view="notebook">Notebook</button>
+    <button data-view="settings">Settings</button>
+    <button id="open-tab" class="icon" title="Open in a full tab (better on a big monitor)">&#10530;</button>
+  </nav>
+  <main>
+    <section id="view-round" class="view active"></section>
+    <section id="view-notebook" class="view"></section>
+    <section id="view-settings" class="view"></section>
+  </main>
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>
