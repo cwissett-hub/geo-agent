@@ -1,16 +1,85 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { newRound, applyActual, feedbackLines, stats } from "../lib/notebook-logic.js";
+import { newRound, applyActual, feedbackLines, stats, serialiseRounds, parseImport } from "../lib/notebook-logic.js";
 
-const res = (country) => ({
-  guess: { country, region: null, locality: null, lat: null, lng: null },
-  confidence: 0.6,
-  alternatives: [],
-  summary: "",
+const res = (country, clueText = "yellow centre line") => ({
+  guess: { country, region: null, lat: null, lng: null }, confidence: 0.5, alternatives: [], summary: "",
   clues: [
-    { id: 1, category: "road_markings", observation: "yellow centre line", inference: "Americas, likely Chile", weight: 0.5,
-      box: { x: 0, y: 0, w: 0.1, h: 0.1 } },
+    { id: 1, category: "road_markings", observation: clueText, inference: "Americas", weight: 0.7, box: { x: 0, y: 0, w: 0.1, h: 0.1 } },
+    { id: 2, category: "soil_climate", observation: "arid", inference: "desert", weight: 0.3, box: { x: 0, y: 0, w: 0.1, h: 0.1 } },
   ],
+});
+
+test("newRound has an id, timestamp and no actual", () => {
+  const r = newRound("data:image/png;base64,AA", [{ provider: "gemini", model: "m", result: res("Chile"), error: null }]);
+  assert.equal(typeof r.id, "string");
+  assert.ok(r.ts > 0);
+  assert.equal(r.actual, null);
+  assert.equal(r.scores, null);
+});
+
+test("applyActual scores every successful result and skips errored ones", () => {
+  const r = newRound("d", [
+    { provider: "gemini", model: "m", result: res("Chile"), error: null },
+    { provider: "openai", model: "m", result: null, error: { code: "no_key", message: "", raw: null } },
+  ]);
+  const a = applyActual(r, { country: "Chile", region: null, lat: null, lng: null });
+  assert.equal(a.scores.gemini.hit, true);
+  assert.equal(a.scores.openai, undefined);
+  assert.equal(r.scores, null, "does not mutate input");
+});
+
+test("feedbackLines lists misses newest first with top clue", () => {
+  const miss1 = applyActual({ ...newRound("d", [{ provider: "gemini", model: "m", result: res("Chile"), error: null }]), ts: 1 },
+    { country: "Peru", region: null, lat: null, lng: null });
+  const hit = applyActual({ ...newRound("d", [{ provider: "gemini", model: "m", result: res("Kenya"), error: null }]), ts: 2 },
+    { country: "Kenya", region: null, lat: null, lng: null });
+  const miss2 = applyActual({ ...newRound("d", [{ provider: "gemini", model: "m", result: res("Norway", "snow poles"), error: null }]), ts: 3 },
+    { country: "Sweden", region: null, lat: null, lng: null });
+  const lines = feedbackLines([miss1, hit, miss2]);
+  assert.deepEqual(lines, [
+    "Guessed Norway (top clue: snow poles); actual Sweden",
+    "Guessed Chile (top clue: yellow centre line); actual Peru",
+  ]);
+});
+
+test("feedbackLines respects the limit and ignores unscored rounds", () => {
+  const rounds = [];
+  for (let i = 0; i < 20; i++) {
+    rounds.push(applyActual({ ...newRound("d", [{ provider: "gemini", model: "m", result: res("A"), error: null }]), ts: i },
+      { country: "B", region: null, lat: null, lng: null }));
+  }
+  rounds.push(newRound("d", [{ provider: "gemini", model: "m", result: res("A"), error: null }]));
+  assert.equal(feedbackLines(rounds).length, 12);
+  assert.equal(feedbackLines(rounds, 3).length, 3);
+});
+
+test("stats aggregates by category and provider", () => {
+  const hit = applyActual(newRound("d", [{ provider: "gemini", model: "m", result: res("Chile"), error: null }]),
+    { country: "Chile", region: null, lat: null, lng: null });
+  const miss = applyActual(newRound("d", [{ provider: "gemini", model: "m", result: res("Chile"), error: null }]),
+    { country: "Peru", region: null, lat: null, lng: null });
+  const unscored = newRound("d", [{ provider: "gemini", model: "m", result: res("Chile"), error: null }]);
+  const s = stats([hit, miss, unscored]);
+  assert.equal(s.total, 2);
+  assert.deepEqual(s.byProvider.gemini, { hits: 1, rounds: 2, rate: 0.5, regionHits: 0, meanDistanceKm: null });
+  assert.deepEqual(s.byCategory.road_markings, { supporting: 1, misleading: 1, rate: 0.5 });
+  assert.deepEqual(s.byCategory.soil_climate, { supporting: 1, misleading: 1, rate: 0.5 });
+});
+
+test("serialise and parseImport round trip", () => {
+  const r = newRound("d", [{ provider: "gemini", model: "m", result: res("Chile"), error: null }]);
+  const text = serialiseRounds([r]);
+  const back = parseImport(text);
+  assert.deepEqual(back, [r]);
+  assert.deepEqual(parseImport(JSON.stringify([r])), [r]);
+});
+
+test("parseImport rejects wrong shapes", () => {
+  assert.throws(() => parseImport("{}"), /import:/);
+  assert.throws(() => parseImport("[1,2]"), /import:/);
+  assert.throws(() => parseImport("not json"), /import:/);
+  assert.throws(() => parseImport(JSON.stringify([{ id: "x" }])), /import:/);
 });
 
 test("stats report region hits and mean distance per provider", () => {
@@ -40,13 +109,4 @@ test("feedbackLines include regions when known", () => {
     result: { ...res("Chile"), guess: { country: "Chile", region: "Atacama", locality: null, lat: null, lng: null } }, error: null }]),
     { country: "Peru", region: "Arequipa", lat: null, lng: null });
   assert.deepEqual(feedbackLines([r]), ["Guessed Chile, Atacama (top clue: yellow centre line); actual Peru, Arequipa"]);
-});
-
-test("stats aggregates by category and provider", () => {
-  const r1 = applyActual(newRound("d1", [{ provider: "gemini", model: "m", result: res("Chile"), error: null }]),
-    { country: "Chile", region: null, lat: null, lng: null });
-  const r2 = applyActual(newRound("d2", [{ provider: "gemini", model: "m", result: res("Peru"), error: null }]),
-    { country: "Chile", region: null, lat: null, lng: null });
-  const s = stats([r1, r2]);
-  assert.deepEqual(s.byProvider.gemini, { hits: 1, rounds: 2, rate: 0.5, regionHits: 0, meanDistanceKm: null });
 });
