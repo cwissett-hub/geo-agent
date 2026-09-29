@@ -62,3 +62,11 @@ test("buildUserText includes each feedback line", () => {
   assert.ok(t.includes("- Guessed Chile; actual Peru"));
   assert.ok(t.includes("- Guessed Kenya; actual Uganda"));
 });
+
+test("system prompt forbids lookups and lists human-detectable metas", () => {
+  assert.ok(SYSTEM_PROMPT.includes("NO LOOKUPS"));
+  for (const word of ["bollards", "road lines", "sign types", "number plates", "utility poles", "trees"]) {
+    assert.ok(SYSTEM_PROMPT.includes(word), word);
+  }
+  assert.ok(SYSTEM_PROMPT.includes("nearest LARGE town"));
+});
