@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Geo Meta Trainer",
+  "version": "0.1.0",
+  "description": "Screenshot a GeoGuessr round, get a vision-model guess with boxed clues and weights, and build a personal meta notebook.",
+  "permissions": ["activeTab", "sidePanel", "storage", "tabs"],
+  "host_permissions": [
+    "https://www.geoguessr.com/*",
+    "https://api.anthropic.com/*",
+    "https://api.openai.com/*",
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "action": { "default_title": "Geo Meta Trainer" },
+  "icons": { "128": "icons/icon128.png" },
+  "commands": {
+    "capture": {
+      "suggested_key": { "default": "Alt+G" },
+      "description": "Capture the current round and analyse it"
+    }
+  }
+}
