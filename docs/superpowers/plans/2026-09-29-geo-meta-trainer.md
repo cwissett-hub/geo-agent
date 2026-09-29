@@ -3296,3 +3296,213 @@ git push origin main
 - After the actual location is saved, the result card shows the distance in km (one decimal under 10 km, whole km otherwise) when available, and "Region: correct / wrong" when the user gave a region.
 - Notebook stats provider table gains two columns: region hit rate and mean distance.
 - The actual-location form keeps country, region and coordinates inputs; the country input has the `COVERAGE_COUNTRIES` datalist from Task 14.
+
+---
+
+### Task 16: Manual mode (copy image, copy prompt, paste reply) — execute after Task 11
+
+Added mid-run at the user's request. When no API key works, the user can still use any chat model by hand: copy the screenshot, copy the prompt, paste both into a chat, then paste the JSON reply back into the extension. The pasted reply goes through the same validator and renders, scores and saves like an API result.
+
+**Files:**
+- Create: `lib/manual.js`
+- Modify: `ui/round.js` (add the manual section)
+- Modify: `manifest.json` (add `"clipboardWrite"` to `permissions`)
+- Test: `test/manual.test.js`
+
+**Interfaces:**
+- Produces (`lib/manual.js`, pure):
+  - `export function manualPrompt(feedbackLines)` → string: `SYSTEM_PROMPT`, a blank line, `buildUserText(feedbackLines)`, a blank line, then the instruction `Reply with ONLY a JSON object matching this schema, no prose and no code fence:` followed by `JSON.stringify(RESULT_SCHEMA)`.
+  - `export function parsePastedReply(text)` → `RoundResult` via `textToResult` from `lib/providers/common.js` (so fenced JSON and validation errors behave exactly like an API reply; throws `ProviderError`).
+  - `export function manualResultEntry(result)` → `{provider: "manual", model: "pasted", result, error: null}` — the results-array entry shape from Task 7.
+  - `export function providerLabel(id)` → `PROVIDERS[id]?.label ?? "Manual paste"`. Every place in `ui/` that currently reads `PROVIDERS[r.provider].label` must use this instead, so a `"manual"` provider id never crashes the UI (Task 11 and Task 12 code included).
+- Produces (`ui/round.js`):
+  - A "Manual mode" card rendered whenever a round has an `imageDataUrl` (including when every API result errored). Contents: a one-line explanation, buttons **Copy image**, **Copy prompt**, a textarea "Paste the reply here", and a **Use reply** button.
+  - **Copy image**: decode `round.imageDataUrl` to a PNG blob (draw onto a canvas, `canvas.toBlob(..., "image/png")`; Chrome's clipboard accepts PNG, not JPEG) and `navigator.clipboard.write([new ClipboardItem({"image/png": blob})])`. Show "Copied" on the button for 1.2 s, or the error message if the write fails.
+  - **Copy prompt**: `navigator.clipboard.writeText(manualPrompt(feedback))`, where `feedback` is the current feedback lines from `chrome.storage.session.lastFeedback`.
+  - **Use reply**: `parsePastedReply(textarea.value)`; on success append `manualResultEntry(result)` to `round.results` (replacing any existing `"manual"` entry), clear the textarea, re-render the round so the boxes and clue list appear, and if the round already has `actual`, recompute scores with `applyActual`. On failure show the error text under the textarea; nothing is saved.
+  - A round that has only a manual result is saved to the notebook exactly like any other when the actual location is entered.
+
+- [ ] **Step 1: Write the failing tests**
+
+`test/manual.test.js`:
+
+```js
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { manualPrompt, parsePastedReply, manualResultEntry, providerLabel } from "../lib/manual.js";
+import { SYSTEM_PROMPT, RESULT_SCHEMA } from "../lib/prompt.js";
+
+const goodResult = {
+  guess: { country: "Chile", region: "Atacama", locality: null, lat: -23.6, lng: -70.4 }, confidence: 0.6, alternatives: [],
+  clues: [{ id: 1, category: "other", observation: "o", inference: "i", weight: 1, box: { x: 0, y: 0, w: 0.5, h: 0.5 } }],
+  summary: "s",
+};
+
+test("manualPrompt contains system prompt, user text, feedback and schema", () => {
+  const p = manualPrompt(["Guessed Chile; actual Peru"]);
+  assert.ok(p.startsWith(SYSTEM_PROMPT));
+  assert.ok(p.includes("- Guessed Chile; actual Peru"));
+  assert.ok(p.includes("Reply with ONLY a JSON object"));
+  assert.ok(p.includes(JSON.stringify(RESULT_SCHEMA)));
+});
+
+test("parsePastedReply accepts plain and fenced JSON", () => {
+  assert.equal(parsePastedReply(JSON.stringify(goodResult)).guess.country, "Chile");
+  assert.equal(parsePastedReply("```json\n" + JSON.stringify(goodResult) + "\n```").guess.country, "Chile");
+});
+
+test("parsePastedReply rejects junk with an unparseable ProviderError", () => {
+  assert.throws(() => parsePastedReply("hello"), (e) => e.code === "unparseable");
+  assert.throws(() => parsePastedReply('{"guess":{}}'), (e) => e.code === "unparseable");
+});
+
+test("manualResultEntry has the results-array shape", () => {
+  assert.deepEqual(manualResultEntry(goodResult), { provider: "manual", model: "pasted", result: goodResult, error: null });
+});
+
+test("providerLabel falls back for manual", () => {
+  assert.equal(providerLabel("openai"), "GPT (OpenAI)");
+  assert.equal(providerLabel("manual"), "Manual paste");
+});
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `npm test`
+Expected: FAIL, cannot find `../lib/manual.js`.
+
+- [ ] **Step 3: Write lib/manual.js**
+
+```js
+import { SYSTEM_PROMPT, RESULT_SCHEMA, buildUserText } from "./prompt.js";
+import { textToResult } from "./providers/common.js";
+import { PROVIDERS } from "./providers/index.js";
+
+export function manualPrompt(feedbackLines) {
+  return [
+    SYSTEM_PROMPT,
+    buildUserText(feedbackLines),
+    "Reply with ONLY a JSON object matching this schema, no prose and no code fence:",
+    JSON.stringify(RESULT_SCHEMA),
+  ].join("\n\n");
+}
+
+export function parsePastedReply(text) {
+  return textToResult(text);
+}
+
+export function manualResultEntry(result) {
+  return { provider: "manual", model: "pasted", result, error: null };
+}
+
+export function providerLabel(id) {
+  const p = PROVIDERS[id];
+  return p ? p.label : "Manual paste";
+}
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `npm test`
+Expected: all passing.
+
+- [ ] **Step 5: Add the manual card to ui/round.js**
+
+Add imports:
+
+```js
+import { manualPrompt, parsePastedReply, manualResultEntry, providerLabel } from "../lib/manual.js";
+```
+
+Replace every `PROVIDERS[r.provider].label` in `ui/round.js` and `ui/notebook.js` with `providerLabel(r.provider)` (and the `.split(" ")[0]` short form in the notebook with `providerLabel(r.provider).split(" ")[0]`).
+
+Add a function and call it from `renderRound` after the provider columns and before the actual-location form, whenever `round.imageDataUrl` is set:
+
+```js
+function manualCard(round, rerender) {
+  const card = document.createElement("div");
+  card.className = "card manual";
+  card.innerHTML = `
+    <h3 style="margin:0 0 6px">Manual mode</h3>
+    <p class="muted">No API key, or the call failed? Copy the image and the prompt, paste both into any chat model, then paste its reply below.</p>
+    <div class="row">
+      <button class="secondary" data-act="copy-image">Copy image</button>
+      <button class="secondary" data-act="copy-prompt">Copy prompt</button>
+    </div>
+    <label for="manual-reply">Paste the reply here</label>
+    <textarea id="manual-reply" rows="5" placeholder='{"guess": {...}, "clues": [...], ...}'></textarea>
+    <p class="error" id="manual-err" hidden></p>`;
+  const flash = (btn, text) => { const old = btn.textContent; btn.textContent = text; setTimeout(() => { btn.textContent = old; }, 1200); };
+
+  card.querySelector('[data-act="copy-image"]').onclick = async (e) => {
+    try {
+      const blob = await dataUrlToPngBlob(round.imageDataUrl);
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      flash(e.target, "Copied");
+    } catch (err) {
+      flash(e.target, `Failed: ${err.message}`);
+    }
+  };
+  card.querySelector('[data-act="copy-prompt"]').onclick = async (e) => {
+    const { lastFeedback } = await chrome.storage.session.get("lastFeedback");
+    await navigator.clipboard.writeText(manualPrompt(lastFeedback || []));
+    flash(e.target, "Copied");
+  };
+  const use = actionButton("Use reply", () => {
+    const err = card.querySelector("#manual-err");
+    try {
+      const result = parsePastedReply(card.querySelector("#manual-reply").value);
+      const results = round.results.filter((r) => r.provider !== "manual").concat(manualResultEntry(result));
+      let updated = { ...round, results };
+      if (round.actual) updated = applyActual(updated, round.actual);
+      rerender(updated);
+    } catch (e) {
+      err.textContent = e.message;
+      err.hidden = false;
+    }
+  });
+  use.style.marginTop = "8px";
+  card.append(use);
+  return card;
+}
+
+async function dataUrlToPngBlob(dataUrl) {
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error("could not decode image")); img.src = dataUrl; });
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+  canvas.getContext("2d").drawImage(img, 0, 0);
+  return new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error("PNG encode failed"))), "image/png"));
+}
+```
+
+`rerender(updated)` is a callback `renderRound` supplies: it sets the panel's current round to `updated`, writes it to `chrome.storage.session.lastRound`, and calls `renderRound` again with the same options. If the round is already saved (`round.actual` set), also `putRound(updated)` so the manual result persists.
+
+Add to `sidepanel.css`:
+
+```css
+.manual textarea { width: 100%; font: 12px/1.4 ui-monospace, monospace; background: var(--panel); color: var(--text); border: 1px solid #2a2e35; border-radius: 4px; padding: 6px; }
+```
+
+- [ ] **Step 6: Add the permission**
+
+In `manifest.json`, `permissions` becomes `["activeTab", "sidePanel", "storage", "tabs", "clipboardWrite"]`.
+
+- [ ] **Step 7: Check by hand**
+
+1. Reload the extension. Remove all API keys. Press Alt+G on a GeoGuessr round. Expected: the error card ("No API key…") AND the Manual mode card, with the screenshot visible.
+2. Copy image → paste into any image-accepting field (e.g. a chat box): the screenshot appears.
+3. Copy prompt → paste into a text field: the prompt begins with the coach instructions and ends with the JSON schema.
+4. Paste both into a chat model, copy its JSON reply, paste into the textarea, Use reply. Expected: boxes and clue list render under a "Manual paste · pasted" heading.
+5. Enter the actual location and save. Notebook shows the round with "Manual" as the provider; stats count it.
+6. Paste garbage and Use reply: red error text, nothing saved.
+
+- [ ] **Step 8: Commit and push**
+
+```bash
+git add lib/manual.js test/manual.test.js ui/round.js ui/notebook.js sidepanel.css manifest.json
+git commit -m "Add manual mode: copy image, copy prompt, paste reply
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+git push origin main
+```
