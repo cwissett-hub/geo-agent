@@ -132,7 +132,7 @@ function manualCard(round, rerender) {
   card.className = "card manual";
   card.innerHTML = `
     <h3>Manual mode</h3>
-    <p class="muted">No API key, or the call failed? Copy the image and the prompt, paste both into any chat model, then paste its reply below.</p>
+    <p class="muted">No API key, or the call failed? Copy the image and the prompt, paste both into any chat model, then paste its reply below. "Copy image" also carries the prompt text; some chats take both in one paste, most need "Copy prompt" as a second paste.</p>
     <div class="row">
       <button class="secondary" data-act="copy-image">Copy image</button>
       <button class="secondary" data-act="copy-prompt">Copy prompt</button>
@@ -142,19 +142,30 @@ function manualCard(round, rerender) {
     <p class="error" id="manual-err" hidden></p>`;
   const flash = (btn, text) => { const old = btn.textContent; btn.textContent = text; setTimeout(() => { btn.textContent = old; }, 1200); };
 
+  const promptText = async () => {
+    const { lastFeedback } = await chrome.storage.session.get("lastFeedback");
+    return manualPrompt(lastFeedback || []);
+  };
+  // One clipboard item with two representations: the PNG and the prompt as
+  // text/plain. A chat box that reads both gets everything in one paste; one
+  // that only takes the image still works, with Copy prompt as the second step.
   card.querySelector('[data-act="copy-image"]').onclick = async (e) => {
     try {
       const blob = await dataUrlToPngBlob(round.imageDataUrl);
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      const text = new Blob([await promptText()], { type: "text/plain" });
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob, "text/plain": text })]);
       flash(e.target, "Copied");
     } catch (err) {
       flash(e.target, `Failed: ${err.message}`);
     }
   };
   card.querySelector('[data-act="copy-prompt"]').onclick = async (e) => {
-    const { lastFeedback } = await chrome.storage.session.get("lastFeedback");
-    await navigator.clipboard.writeText(manualPrompt(lastFeedback || []));
-    flash(e.target, "Copied");
+    try {
+      await navigator.clipboard.writeText(await promptText());
+      flash(e.target, "Copied");
+    } catch (err) {
+      flash(e.target, `Failed: ${err.message}`);
+    }
   };
   const use = actionButton("Use reply", () => {
     const err = card.querySelector("#manual-err");
@@ -215,9 +226,13 @@ function resultBody(r, round, boxEls) {
   const res = r.result;
   const out = [];
 
+  // The guess is the hero of the card: big GeoGuessr-style place name, region
+  // beneath, confidence as a quiet pill.
   const guess = document.createElement("div");
-  const place = [res.guess.country, res.guess.region].filter(Boolean).join(", ");
-  guess.innerHTML = `<strong>${escapeHtml(place)}</strong> <span class="muted">${Math.round(res.confidence * 100)}% confident</span>`;
+  guess.className = "guess-head";
+  guess.innerHTML = `
+    <div class="guess-country">${escapeHtml(res.guess.country)}</div>
+    <div class="guess-meta">${res.guess.region ? `<span>${escapeHtml(res.guess.region)}</span>` : ""}<span class="pill">${Math.round(res.confidence * 100)}% confident</span></div>`;
   out.push(guess);
 
   if (res.guess.locality) out.push(p("muted", res.guess.locality));
@@ -240,17 +255,30 @@ function resultBody(r, round, boxEls) {
 
   const score = round.scores && round.scores[r.provider];
   if (score) {
-    out.push(p(score.hit ? "hit" : "miss", score.hit ? "Correct country" : `Wrong: it was ${round.actual.country}`));
+    // Round result strip: distance as the big number (GeoGuessr scores by
+    // distance), then one chip per thing we could check.
+    const strip = document.createElement("div");
+    strip.className = "result-strip";
     if (Number.isFinite(score.distanceKm)) {
       const km = score.distanceKm < 10 ? score.distanceKm.toFixed(1) : String(Math.round(score.distanceKm));
-      out.push(p("muted", `${km} km away`));
+      const d = document.createElement("div");
+      d.className = "distance";
+      d.innerHTML = `<span class="km">${km}</span><span class="unit">km away</span>`;
+      strip.append(d);
     }
-    if (round.actual.locality) {
-      out.push(p(score.localityHit ? "hit" : "miss", score.localityHit ? "Town: correct" : `Town: wrong (${round.actual.locality})`));
-    }
-    if (round.actual.region) {
-      out.push(p(score.regionHit ? "hit" : "miss", score.regionHit ? "Region: correct" : `Region: wrong (${round.actual.region})`));
-    }
+    const chips = document.createElement("div");
+    chips.className = "chips";
+    const chip = (ok, okText, badText) => {
+      const s = document.createElement("span");
+      s.className = `chip ${ok ? "chip-hit" : "chip-miss"}`;
+      s.textContent = ok ? okText : badText;
+      return s;
+    };
+    chips.append(chip(score.hit, "Country", `Country: ${round.actual.country}`));
+    if (round.actual.locality) chips.append(chip(score.localityHit, "Town", `Town: ${round.actual.locality}`));
+    if (round.actual.region) chips.append(chip(score.regionHit, "Region", `Region: ${round.actual.region}`));
+    strip.append(chips);
+    out.push(strip);
   }
 
   const list = document.createElement("div");
@@ -264,27 +292,42 @@ function resultBody(r, round, boxEls) {
     row.innerHTML = `
       <div class="num">${c.id}</div>
       <div>
-        <div class="cat">${escapeHtml(category.replace(/_/g, " "))}${verdict ? ` · <span class="verdict-${verdict.verdict}">${verdict.verdict}</span>` : ""}</div>
+        <div class="cat">${escapeHtml(category.replace(/_/g, " "))}${verdict ? ` <span class="verdict verdict-${verdict.verdict}">${verdict.verdict}</span>` : ""}</div>
         <div>${escapeHtml(c.observation)}</div>
         <div class="muted">${escapeHtml(c.inference)}</div>
         <div class="bar" style="width:${Math.max(2, c.weight * 100)}%"></div>
       </div>
       <div class="pct">${Math.round(c.weight * 100)}%</div>`;
-    const activate = (on) => {
+    // Hover gives a transient highlight; a click pins one clue (row and box
+    // together) and dims the other boxes so it stands out on the image.
+    // Clicking the pinned clue again, on either side, unpins it.
+    const box = boxEls[i];
+    const shotEl = box.parentElement;
+    const hover = (on) => {
       row.classList.toggle("active", on);
-      boxEls[i].classList.toggle("active", on);
+      box.classList.toggle("active", on);
       boxEls.forEach((b) => { b.style.display = ""; });
     };
-    row.onmouseenter = () => activate(true);
-    row.onmouseleave = () => activate(false);
-    row.onclick = () => activate(!row.classList.contains("active"));
-    row.onkeydown = (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        activate(!row.classList.contains("active"));
-      }
+    const setPinned = (on) => {
+      list.querySelectorAll(".clue.pinned").forEach((el) => el.classList.remove("pinned"));
+      boxEls.forEach((b) => b.classList.remove("pinned"));
+      shotEl.classList.toggle("has-pinned", on);
+      if (on) { row.classList.add("pinned"); box.classList.add("pinned"); }
     };
-    boxEls[i].onclick = () => row.scrollIntoView({ behavior: "smooth", block: "center" });
+    const toggle = () => setPinned(!row.classList.contains("pinned"));
+    row.onmouseenter = () => hover(true);
+    row.onmouseleave = () => hover(false);
+    row.onclick = toggle;
+    row.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+    };
+    box.onmouseenter = () => hover(true);
+    box.onmouseleave = () => hover(false);
+    box.onclick = (e) => {
+      e.stopPropagation();
+      toggle();
+      if (row.classList.contains("pinned")) row.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
     list.append(row);
   });
   out.push(list);

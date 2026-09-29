@@ -15,7 +15,7 @@ export async function renderNotebook(root, { onOpen, onDeleted }) {
   root.append(statsCard(stats(rounds)));
 
   const bar = document.createElement("div");
-  bar.className = "row";
+  bar.className = "row filters";
   bar.style.marginBottom = "12px";
   const country = Object.assign(document.createElement("input"), {
     placeholder: "Filter by country",
@@ -202,14 +202,16 @@ function statsCard(s) {
 
   card.innerHTML = `
     <h3 style="margin:0 0 8px">${s.total} scored round${s.total === 1 ? "" : "s"}</h3>
-    <table class="stats">
-      <tr><th>Clue category</th><th>Reliable</th><th>n</th></tr>
-      ${catRows}
-    </table>
-    <table class="stats" style="margin-top:12px">
-      <tr><th>Provider</th><th>Country hit</th><th>Town hit</th><th>Region hit</th><th>Mean dist</th></tr>
-      ${provRows}
-    </table>`;
+    <div class="stats-grid">
+      <table class="stats">
+        <tr><th>Clue category</th><th>Reliable</th><th>n</th></tr>
+        ${catRows}
+      </table>
+      <table class="stats">
+        <tr><th>Provider</th><th>Country hit</th><th>Town hit</th><th>Region hit</th><th>Mean dist</th></tr>
+        ${provRows}
+      </table>
+    </div>`;
   return card;
 }
 

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Geo Meta Trainer - preview</title>
+  <link rel="stylesheet" href="../sidepanel.css">
+  <!-- Stub the extension APIs so the real panel code runs in a plain browser.
+       Open via dev/serve.mjs (IndexedDB is not available on file://).
+       Query params: ?view=round|notebook|settings  &state=empty|fresh|scored|error -->
+  <script src="stub-chrome.js"></script>
+</head>
+<body>
+  <header class="app-bar">
+    <span class="wordmark">Geo Meta Trainer</span>
+  </header>
+  <nav class="tabs">
+    <button data-view="round" class="active">Round</button>
+    <button data-view="notebook">Notebook</button>
+    <button data-view="settings">Settings</button>
+    <button id="open-tab" class="icon" title="Open in a full tab (better on a big monitor)">&#10530;</button>
+  </nav>
+  <main>
+    <section id="view-round" class="view active"></section>
+    <section id="view-notebook" class="view"></section>
+    <section id="view-settings" class="view"></section>
+  </main>
+  <script type="module" src="seed.js"></script>
+</body>
+</html>

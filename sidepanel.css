@@ -1,25 +1,29 @@
 /* Geo Meta Trainer side panel
-   Cartographic field-instrument look: quiet dark slate chrome so the fixed
-   category clue colours (--c-*) stay the loudest thing on screen. One accent
-   (map-teal). Hairline panels, sticky instrument tab bar, reticle wordmark. */
+   Styled to sit beside GeoGuessr itself: the same deep indigo, the purple
+   panels, the green play-button gradient, pill buttons and bold italic
+   uppercase for headings. Colours were sampled from geoguessr.com. The fixed
+   category clue colours (--c-*) stay the loudest thing on the screenshot. */
 
 :root {
   color-scheme: dark;
 
-  /* Base palette (fixed by spec) */
-  --bg: #14161a;
-  --panel: #1e2126;
-  --text: #e8e9eb;
-  --muted: #9aa0a8;
-  --accent: #4fc3a1;
-
-  /* Derived chrome */
-  --line: #2a2e35;
-  --panel-2: #262a31;         /* row / clue hover */
-  --field: #181b20;           /* inputs, recessed inside a panel */
-  --accent-ink: #06251d;      /* text on the accent fill */
-  --accent-soft: #4fc3a133;   /* focus ring / faint accent wash */
-  --danger: #ff8a8a;
+  /* GeoGuessr palette (sampled) */
+  --bg: #171235;              /* page background */
+  --panel: #211a4c;           /* raised panel */
+  --panel-2: #2b2260;         /* row / clue hover, nested panel */
+  --field: #10101c;           /* inputs, recessed */
+  --text: #ffffff;
+  --muted: #b3acd9;
+  --line: #352c6b;            /* soft edge between indigo and panel */
+  --purple: #7950e5;          /* links, active tab, focus */
+  --purple-2: #5d51b6;
+  --accent: #6cc644;          /* green: primary actions and "correct" */
+  --accent-2: #97e851;        /* gradient top */
+  --accent-3: #479440;        /* gradient bottom */
+  --accent-ink: #0b2a10;      /* text on the green fill */
+  --accent-soft: #7950e555;   /* focus ring */
+  --danger: #e94555;          /* GeoGuessr red: wrong / errors */
+  --teal: #0fb3a2;
 
   /* Category clue colours — the single source of truth everywhere
      (boxes, clue numbers, weight bars, stats meters). */
@@ -79,69 +83,77 @@ body {
   padding: var(--sp-3) var(--sp-4);
 }
 
+/* GeoGuessr sets its wordmark and buttons in a heavy italic uppercase. */
 .wordmark {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.01em;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  font-size: 15px;
+  letter-spacing: 0.02em;
   color: var(--text);
 }
 
-/* Reticle mark: a guess-pin crosshair drawn in CSS, not an emoji. */
+/* Pin mark in GeoGuessr red, drawn in CSS. */
 .wordmark::before {
   content: "";
-  width: 13px;
-  height: 13px;
-  border: 2px solid var(--accent);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at center, var(--accent) 0 1.5px, transparent 2px);
+  width: 14px;
+  height: 14px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: radial-gradient(circle at 50% 50%, var(--bg) 0 2.5px, var(--danger) 3px);
   flex: 0 0 auto;
 }
 
 /* --- Tab selector --------------------------------------------------------- */
 
+/* Tabs as a segmented pill, like GeoGuessr's game-mode switcher. */
 .tabs {
   position: sticky;
   top: 0;
   z-index: 5;
   display: flex;
-  gap: 2px;
-  padding: 0 var(--sp-3);
-  background: var(--bg);
-  border-bottom: 1px solid var(--line);
+  gap: 4px;
+  margin: 0 var(--sp-4) var(--sp-2);
+  padding: 4px;
+  background: var(--field);
+  border-radius: 60px;
 }
 
 .tabs button {
   flex: 1;
-  padding: 10px 8px;
+  padding: 8px 10px;
   background: none;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 60px;
   color: var(--muted);
   font: inherit;
-  font-weight: 500;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.04em;
   cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease;
+  transition: color 120ms ease, background 120ms ease;
 }
 
 .tabs button:hover { color: var(--text); }
 
 .tabs button.active {
   color: var(--text);
-  border-bottom-color: var(--accent);
+  background: var(--purple);
 }
 
 .tabs button.icon {
-  flex: 0 0 40px;
-  font-size: 17px;
+  flex: 0 0 36px;
+  font-size: 16px;
   line-height: 1;
   color: var(--muted);
 }
 
-.tabs button.icon:hover { color: var(--accent); }
+.tabs button.icon:hover { color: var(--text); background: var(--panel-2); }
 
 /* --- Views ---------------------------------------------------------------- */
 
@@ -161,17 +173,20 @@ main { display: block; }
 
 .card {
   background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: 16px;
   padding: var(--sp-4);
   margin-bottom: var(--sp-3);
+  box-shadow: inset 0 1px 0 #ffffff12;
 }
 
 .card h3 {
   margin: 0 0 var(--sp-3);
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--text);
 }
 
@@ -186,22 +201,22 @@ label {
 
 input, select {
   width: 100%;
-  padding: 8px 10px;
+  padding: 9px 12px;
   background: var(--field);
   color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  border-radius: 10px;
   font: inherit;
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
-input::placeholder { color: #656b74; }
+input::placeholder { color: #6f679a; }
 
-input:hover, select:hover { border-color: #3a3f48; }
+input:hover, select:hover { border-color: var(--line); }
 
 input:focus, select:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--purple);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
@@ -222,34 +237,45 @@ label.row input[type="checkbox"] {
 
 /* --- Buttons -------------------------------------------------------------- */
 
+/* GeoGuessr's play button: green vertical gradient, pill, bold italic caps. */
 button.primary {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: linear-gradient(180deg, var(--accent-2), var(--accent-3));
+  color: var(--text);
   border: 0;
-  padding: 9px 16px;
-  border-radius: var(--radius-sm);
+  padding: 10px 20px;
+  border-radius: 60px;
   font: inherit;
-  font-weight: 600;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 0 #0006;
+  box-shadow: inset 0 1px 0 #ffffff55, 0 2px 0 #2b5f27;
   cursor: pointer;
-  transition: filter 120ms ease, box-shadow 120ms ease;
+  transition: filter 120ms ease, transform 120ms ease;
 }
 
 button.primary:hover { filter: brightness(1.08); }
+button.primary:active { transform: translateY(1px); box-shadow: inset 0 1px 0 #ffffff55, 0 1px 0 #2b5f27; }
 
+/* Secondary: white-outline pill, as on GeoGuessr's header. */
 button.secondary {
-  background: var(--panel);
+  background: transparent;
   color: var(--text);
-  border: 1px solid var(--line);
-  padding: 7px 13px;
-  border-radius: var(--radius-sm);
+  border: 2px solid #ffffff33;
+  padding: 7px 16px;
+  border-radius: 60px;
   font: inherit;
+  font-weight: 700;
+  font-size: 13px;
   cursor: pointer;
   transition: border-color 120ms ease, background 120ms ease;
 }
 
 button.secondary:hover {
-  border-color: #3a3f48;
-  background: var(--panel-2);
+  border-color: #ffffff77;
+  background: #ffffff10;
 }
 
 /* The standalone Save button sits between the provider cards and the notebook
@@ -271,11 +297,11 @@ button.primary:focus-visible { outline-offset: 3px; }
 .muted { color: var(--muted); }
 
 .error {
-  background: #3a1e1e;
-  color: #ffb4b4;
-  border: 1px solid #532a2a;
+  background: #e9455522;
+  color: #ffc9cf;
+  border: 1px solid #e9455566;
   padding: var(--sp-3);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
 }
 
 .row {
@@ -288,7 +314,7 @@ button.primary:focus-visible { outline-offset: 3px; }
 /* --- Round view ----------------------------------------------------------- */
 
 .shot { position: relative; width: 100%; }
-.shot img { display: block; width: 100%; border-radius: var(--radius-sm); }
+.shot img { display: block; width: 100%; border-radius: 14px; }
 
 .box {
   position: absolute;
@@ -387,7 +413,7 @@ button.primary:focus-visible { outline-offset: 3px; }
 /* Coordinates and the guess distance read as the domain's native unit. */
 .coord { font-family: var(--font-num); }
 
-.maps-link { color: var(--accent); text-decoration: none; }
+.maps-link { color: #b39cff; text-decoration: none; font-weight: 600; }
 .maps-link:hover { text-decoration: underline; }
 
 /* Summaries cap at a comfortable measure per the density contract. */
@@ -524,6 +550,104 @@ table.stats .n { margin-left: 6px; font-size: 11px; }
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .manual #manual-err { margin-top: var(--sp-2); }
+
+/* --- Round result: hero guess and result strip ---------------------------- */
+
+.guess-head { margin-bottom: var(--sp-3); }
+.guess-country {
+  font-size: 26px;
+  line-height: 1.1;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+@media (min-width: 1000px) { .guess-country { font-size: 30px; } }
+.guess-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 60px;
+  background: var(--field);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Distance is the big number, as in GeoGuessr's own round result. */
+.result-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin: var(--sp-3) 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  box-shadow: inset 0 1px 0 #ffffff12;
+}
+.result-strip .distance { display: flex; align-items: baseline; gap: 6px; }
+.result-strip .km {
+  font-size: 28px;
+  font-weight: 800;
+  font-style: italic;
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+.result-strip .unit { color: var(--muted); font-size: 13px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 60px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip-hit { background: #6cc64426; color: #a8f07a; }
+.chip-miss { background: #e9455526; color: #ffb3bb; }
+
+/* Verdict tag inside the clue eyebrow. */
+.clue .verdict {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 60px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.clue .verdict-supporting { background: #6cc64426; color: #a8f07a; }
+.clue .verdict-misleading { background: #e9455526; color: #ffb3bb; }
+
+/* Pinned clue: click a row or a box and the pair stays highlighted while the
+   other boxes fade back, so the feature is easy to find in the image. */
+.box { cursor: pointer; transition: box-shadow 120ms ease, opacity 120ms ease; }
+.box.pinned { box-shadow: 0 0 0 3px var(--box-color), 0 0 14px var(--box-color); }
+.shot.has-pinned .box:not(.pinned):not(.active) { opacity: 0.3; }
+.clue.pinned { background: var(--panel-2); box-shadow: inset 3px 0 0 var(--box-color); }
+
+/* --- Notebook layout ------------------------------------------------------ */
+
+/* Filter bar on one line: the country box stretches, the two selects hug. */
+.filters { margin-bottom: var(--sp-3); }
+.filters > input { flex: 1 1 200px; width: auto; }
+.filters > select { flex: 0 1 auto; width: auto; }
+
+/* Stats tables sit side by side when there is room, instead of one table
+   stretched across a 4K tab. */
+.stats-grid { display: grid; gap: var(--sp-4); align-items: start; }
+@media (min-width: 900px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
+table.stats th:first-child, table.stats td:first-child { width: 40%; }
 
 /* --- Motion preference ---------------------------------------------------- */
 
