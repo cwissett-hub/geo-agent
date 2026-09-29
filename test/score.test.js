@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normaliseName, isHit, scoreClues, scoreRound } from "../lib/score.js";
+import { normaliseName, isHit, scoreClues, scoreRound, distanceKm, isRegionHit } from "../lib/score.js";
 
 const result = {
   guess: { country: "Chile", region: null, lat: null, lng: null },
@@ -46,6 +46,8 @@ test("region match counts as supporting", () => {
 test("scoreRound bundles hit and verdicts", () => {
   const s = scoreRound(result, { country: "Chile", region: null, lat: null, lng: null });
   assert.equal(s.hit, true);
+  assert.equal(s.regionHit, false);
+  assert.equal(s.distanceKm, null);
   assert.equal(s.verdicts.length, 3);
 });
 
@@ -83,4 +85,33 @@ test("word boundary: Guinea-Bissau clue does not match Guinea", () => {
     confidence: 1, alternatives: [], summary: "", clues: [clue] },
     { country: "Guinea", region: null, lat: null, lng: null });
   assert.equal(v[0].verdict, "misleading");
+});
+
+test("distanceKm London to Paris is about 343 km", () => {
+  const d = distanceKm({ lat: 51.5074, lng: -0.1278 }, { lat: 48.8566, lng: 2.3522 });
+  assert.ok(Math.abs(d - 343.5) < 2, String(d));
+});
+
+test("distanceKm is zero for the same point and null when a coordinate is missing", () => {
+  assert.equal(distanceKm({ lat: 10, lng: 20 }, { lat: 10, lng: 20 }), 0);
+  assert.equal(distanceKm({ lat: 10, lng: 20 }, { lat: null, lng: 20 }), null);
+  assert.equal(distanceKm({ lat: NaN, lng: 20 }, { lat: 1, lng: 2 }), null);
+});
+
+test("isRegionHit compares regions loosely", () => {
+  const r = { ...result, guess: { ...result.guess, region: "Atacama Region" } };
+  assert.equal(isRegionHit(r, { country: "Chile", region: "atacama", lat: null, lng: null }), true);
+  assert.equal(isRegionHit(r, { country: "Chile", region: "Antofagasta", lat: null, lng: null }), false);
+  assert.equal(isRegionHit(r, { country: "Chile", region: null, lat: null, lng: null }), false);
+});
+
+test("scoreRound reports region hit and distance", () => {
+  const r = { ...result, guess: { country: "Chile", region: "Atacama", locality: null, lat: -23.6, lng: -70.4 } };
+  const s = scoreRound(r, { country: "Chile", region: "Atacama", lat: -23.65, lng: -70.4 });
+  assert.equal(s.hit, true);
+  assert.equal(s.regionHit, true);
+  assert.ok(s.distanceKm > 5 && s.distanceKm < 6, String(s.distanceKm));
+  const t = scoreRound(r, { country: "Chile", region: null, lat: null, lng: null });
+  assert.equal(t.regionHit, false);
+  assert.equal(t.distanceKm, null);
 });
