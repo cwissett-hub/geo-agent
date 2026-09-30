@@ -11,19 +11,26 @@ async function activeTab() {
   return tab;
 }
 
-async function captureAndAnalyse(feedback) {
+// Screenshot only. The extension never pans, zooms or otherwise touches the
+// Street View camera; for the car view the player looks down themselves.
+async function captureTab(maxEdge) {
   const tab = await activeTab();
   if (!tab || !/^https?:/.test(tab.url || "")) {
     return { ok: false, error: { code: "capture", message: "Open a normal web page (the GeoGuessr round) in the active tab first." } };
   }
-  let imageDataUrl;
   try {
     const raw = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
-    imageDataUrl = await downscaleDataUrl(raw);
+    return { ok: true, imageDataUrl: await downscaleDataUrl(raw, maxEdge) };
   } catch (e) {
     return { ok: false, error: { code: "capture", message: `Could not capture the tab: ${e.message}` } };
   }
+}
+
+async function captureAndAnalyse(feedback) {
   const settings = await loadSettings();
+  const shot = await captureTab(settings.maxEdge);
+  if (!shot.ok) return shot;
+  const { imageDataUrl } = shot;
   const round = await analyseImage(imageDataUrl, settings, feedback || []);
   await chrome.storage.session.set({ lastRound: round });
   return { ok: true, round };
@@ -39,6 +46,10 @@ async function analyseHeld(imageDataUrl, feedback) {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg && msg.type === "capture") {
     captureAndAnalyse(msg.feedback).then(sendResponse);
+    return true; // async reply
+  }
+  if (msg && msg.type === "captureCar") {
+    loadSettings().then((s) => captureTab(s.maxEdge)).then(sendResponse);
     return true; // async reply
   }
   if (msg && msg.type === "analyse") {

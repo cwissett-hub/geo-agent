@@ -17,8 +17,8 @@ function fakeFetch(status, body) {
   });
 }
 
-test("registry has all three providers in display order", () => {
-  assert.deepEqual(PROVIDER_ORDER, ["anthropic", "openai", "gemini"]);
+test("registry has every provider in display order", () => {
+  assert.deepEqual(PROVIDER_ORDER, ["anthropic", "openai", "gemini", "local"]);
   for (const id of PROVIDER_ORDER) assert.equal(PROVIDERS[id].id, id);
 });
 
@@ -51,4 +51,19 @@ test("callProvider maps non-JSON 200 body to unparseable", async () => {
   await assert.rejects(
     callProvider(PROVIDERS.openai, { key: "k", model: "m", imageDataUrl: img, feedbackLines: [] }, fakeFetch(200, "<html>")),
     (e) => e.code === "unparseable" && e.raw === "<html>");
+});
+
+test("callProvider lets the local provider run without a key", async () => {
+  const ok = { choices: [{ message: { content: JSON.stringify({
+    guess: { country: "Chile", region: "r", locality: null, lat: 1, lng: 2 }, confidence: 0.5, alternatives: [],
+    clues: [{ id: 1, category: "other", observation: "o", inference: "i", weight: 1, box: { x: 0, y: 0, w: 0.5, h: 0.5 } }],
+    summary: "s" }) } }] };
+  const r = await callProvider(PROVIDERS.local, { key: "", model: "m", baseUrl: "http://localhost:11434/v1", imageDataUrl: img, feedbackLines: [] }, fakeFetch(200, ok));
+  assert.equal(r.guess.country, "Chile");
+});
+
+test("callProvider explains a local 403 as an origin problem, not a key problem", async () => {
+  await assert.rejects(
+    callProvider(PROVIDERS.local, { key: "", model: "m", imageDataUrl: img, feedbackLines: [] }, fakeFetch(403, "forbidden")),
+    (e) => e.code === "server" && /OLLAMA_ORIGINS/.test(e.message));
 });

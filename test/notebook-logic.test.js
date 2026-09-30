@@ -62,7 +62,7 @@ test("stats aggregates by category and provider", () => {
   const unscored = newRound("d", [{ provider: "gemini", model: "m", result: res("Chile"), error: null }]);
   const s = stats([hit, miss, unscored]);
   assert.equal(s.total, 2);
-  assert.deepEqual(s.byProvider.gemini, { hits: 1, rounds: 2, rate: 0.5, regionHits: 0, localityHits: 0, meanDistanceKm: null });
+  assert.deepEqual(s.byProvider.gemini, { hits: 1, passes: 1, passRate: 0.5, rounds: 2, rate: 0.5, regionHits: 0, localityHits: 0, meanDistanceKm: null });
   assert.deepEqual(s.byCategory.road_markings, { supporting: 1, misleading: 1, rate: 0.5 });
   assert.deepEqual(s.byCategory.soil_climate, { supporting: 1, misleading: 1, rate: 0.5 });
 });
@@ -142,4 +142,26 @@ test("feedbackLines and stats include the nearest large town", () => {
     result: { ...res("Chile"), guess: { country: "Chile", region: "Atacama", locality: "Calama", lat: null, lng: null } }, error: null }]),
     { country: "Chile", region: null, locality: "calama", lat: null, lng: null });
   assert.equal(stats([r, hit]).byProvider.openai.localityHits, 1);
+});
+
+test("right country but far away is fed back as a miss", () => {
+  const far = res("Russia");
+  far.guess = { country: "Russia", region: "Moscow Oblast", locality: "Moscow", lat: 55.75, lng: 37.62 };
+  const round = applyActual({ ...newRound("d", [{ provider: "openai", model: "m", result: far, error: null }]), ts: 1 },
+    { country: "Russia", region: "Primorsky Krai", locality: "Vladivostok", lat: 43.12, lng: 131.89 });
+  assert.equal(round.scores.openai.hit, true);
+  assert.equal(round.scores.openai.pass, false);
+  const [line] = feedbackLines([round]);
+  assert.match(line, /right country, wrong region, \d+ km off; actual Russia, Primorsky Krai, Vladivostok/);
+  const s = stats([round]);
+  assert.equal(s.byProvider.openai.hits, 1);
+  assert.equal(s.byProvider.openai.passes, 0);
+});
+
+test("rounds scored before pass existed fall back to the country hit", () => {
+  const round = applyActual(newRound("d", [{ provider: "gemini", model: "m", result: res("Chile"), error: null }]),
+    { country: "Chile", region: null, lat: null, lng: null });
+  delete round.scores.gemini.pass;
+  assert.deepEqual(feedbackLines([round]), []);
+  assert.equal(stats([round]).byProvider.gemini.passes, 1);
 });

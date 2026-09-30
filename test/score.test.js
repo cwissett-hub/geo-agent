@@ -134,3 +134,41 @@ test("scoreRound reports the town hit and a clue naming the town is supporting",
   assert.equal(s.localityHit, true);
   assert.deepEqual(s.verdicts, [{ id: 1, verdict: "supporting" }]);
 });
+
+import { isPass, scorePassed, PASS_KM } from "../lib/score.js";
+
+const at = (country, region, locality, lat, lng) => ({ ...result, guess: { country, region, locality, lat, lng } });
+
+test("pass: wrong country always fails", () => {
+  assert.equal(isPass(at("Peru", null, null, null, null), { country: "Chile", region: null, locality: null, lat: null, lng: null }), false);
+});
+
+test("pass: right country with nothing finer to check passes", () => {
+  assert.equal(isPass(at("Chile", null, null, null, null), { country: "Chile", region: null, locality: null, lat: null, lng: null }), true);
+});
+
+test("pass: right country, thousands of km out, fails", () => {
+  const g = at("Australia", "New South Wales", "Sydney", -33.87, 151.21);
+  assert.equal(isPass(g, { country: "Australia", region: "Western Australia", locality: "Perth", lat: -31.95, lng: 115.86 }), false);
+});
+
+test("pass: right country and within PASS_KM passes even with a different region name", () => {
+  const g = at("Russia", "Moscow Oblast", null, 55.75, 37.62);
+  const a = { country: "Russia", region: "Tver Oblast", locality: null, lat: 56.86, lng: 35.9 };
+  assert.ok(distanceKm(g.guess, a) < PASS_KM);
+  assert.equal(isPass(g, a), true);
+});
+
+test("pass: right country and region name matches, no coordinates, passes", () => {
+  const g = at("Russia", "Primorsky Krai", null, null, null);
+  assert.equal(isPass(g, { country: "Russia", region: "Primorsky Krai", locality: null, lat: null, lng: null }), true);
+  assert.equal(isPass(g, { country: "Russia", region: "Altai Krai", locality: null, lat: null, lng: null }), false);
+});
+
+test("scoreRound carries pass; scorePassed falls back to hit for old scores", () => {
+  const s = scoreRound(at("Chile", null, null, null, null), { country: "Chile", region: null, locality: null, lat: null, lng: null });
+  assert.equal(s.pass, true);
+  assert.equal(scorePassed({ hit: true }), true);
+  assert.equal(scorePassed({ hit: true, pass: false }), false);
+  assert.equal(scorePassed(null), false);
+});

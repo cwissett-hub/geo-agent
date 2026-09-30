@@ -1,9 +1,11 @@
 import { applyActual } from "../lib/notebook-logic.js";
 import { putRound } from "../lib/notebook-db.js";
-import { parseActualInput } from "../lib/geo.js";
-import { COVERAGE_COUNTRIES } from "../lib/countries.js";
+import { parseActualInput, osmEmbedUrl } from "../lib/geo.js";
+import { activeCountries } from "../lib/countries.js";
+import { loadSettings } from "../lib/settings.js";
 import { manualPrompt, parsePastedReply, manualResultEntry, providerLabel } from "../lib/manual.js";
 import { CATEGORIES } from "../lib/prompt.js";
+import { scorePassed } from "../lib/score.js";
 
 const ERROR_TEXT = {
   no_key: "No API key for this provider. Add one in Settings.",
@@ -33,13 +35,18 @@ export function renderRoundError(root, error, { onRetry }) {
   if (onRetry) root.append(actionButton("Retry", onRetry));
 }
 
-export function renderRound(root, round, { onCapture, onRetry, onUpdate }) {
+export function renderRound(root, round, { onCapture, onRetry, onUpdate, onCarView }) {
   root.innerHTML = "";
   const top = document.createElement("div");
   top.className = "row";
   top.style.marginBottom = "12px";
   top.append(actionButton("Capture & analyse (Alt+G)", onCapture));
   root.append(top);
+  if (round && !round.pending && round.imageDataUrl && !round.actual && onCarView) {
+    const car = carViewCard(round, onCarView);
+    top.append(car.button);
+    root.append(car.card);
+  }
 
   if (!round) {
     root.append(p("muted", "Press Alt+G on a GeoGuessr round, or use the button above."));
@@ -116,15 +123,45 @@ export function renderRound(root, round, { onCapture, onRetry, onUpdate }) {
     // when the round is already saved); the local fallback just re-renders.
     const rerender = onUpdate
       ? onUpdate
-      : (updated) => renderRound(root, updated, { onCapture, onRetry, onUpdate });
+      : (updated) => renderRound(root, updated, { onCapture, onRetry, onUpdate, onCarView });
     mainCol.append(manualCard(round, rerender));
   }
 
   mainCol.append(actualForm(round, async (updated) => {
     await putRound(updated);
-    renderRound(root, updated, { onCapture, onRetry, onUpdate });
+    renderRound(root, updated, { onCapture, onRetry, onUpdate, onCarView });
     if (root._onSaved) root._onSaved(updated);
   }));
+}
+
+// Car meta: the player looks down in Street View themselves (the extension
+// never moves the camera), then presses Go. The car shot is stacked under the
+// main screenshot and the round is analysed again.
+function carViewCard(round, onCarView) {
+  const card = document.createElement("div");
+  card.className = "card car-view";
+  card.hidden = true;
+  const again = Boolean(round.baseImageDataUrl);
+  const button = Object.assign(document.createElement("button"), {
+    className: "secondary",
+    textContent: again ? "Retake Google car view" : "Add Google car view",
+  });
+  const close = () => { card.hidden = true; button.hidden = false; };
+  button.onclick = () => {
+    button.hidden = true;
+    card.hidden = false;
+    card.innerHTML = "";
+    card.append(
+      p("", "Look down in Street View until the Google car (roof, rack, antenna, bonnet) is in view, then press Go."),
+      p("muted", "The extension only takes a screenshot; it never moves the view. The car shot is added under the first screenshot and the round is analysed again."),
+    );
+    const row = document.createElement("div");
+    row.className = "row";
+    const cancel = Object.assign(document.createElement("button"), { className: "secondary", textContent: "Cancel", onclick: close });
+    row.append(actionButton("Go", () => onCarView()), cancel);
+    card.append(row);
+  };
+  return { button, card };
 }
 
 function manualCard(round, rerender) {
@@ -144,7 +181,7 @@ function manualCard(round, rerender) {
 
   const promptText = async () => {
     const { lastFeedback } = await chrome.storage.session.get("lastFeedback");
-    return manualPrompt(lastFeedback || []);
+    return manualPrompt(lastFeedback || [], activeCountries(await loadSettings()));
   };
   // One clipboard item with two representations: the PNG and the prompt as
   // text/plain. A chat box that reads both gets everything in one paste; one
@@ -251,6 +288,15 @@ function resultBody(r, round, boxEls) {
     link.textContent = "Open in Google Maps";
     coords.append(span, document.createTextNode(" "), link);
     out.push(coords);
+    // Where the model thinks this is, on a real map: region and town names
+    // mean little until you can see them. Widens to show the actual location
+    // too once it has coordinates (the marker stays on the guess).
+    const map = document.createElement("iframe");
+    map.className = "guess-map";
+    map.loading = "lazy";
+    map.title = `Map of the guess: ${res.guess.country}`;
+    map.src = osmEmbedUrl(res.guess, round.actual);
+    out.push(map);
   }
 
   const score = round.scores && round.scores[r.provider];
@@ -274,6 +320,8 @@ function resultBody(r, round, boxEls) {
       s.textContent = ok ? okText : badText;
       return s;
     };
+    // Pass needs the right part of the country too (see isPass in score.js).
+    chips.append(chip(scorePassed(score), "Pass", "Fail"));
     chips.append(chip(score.hit, "Country", `Country: ${round.actual.country}`));
     if (round.actual.locality) chips.append(chip(score.localityHit, "Town", `Town: ${round.actual.locality}`));
     if (round.actual.region) chips.append(chip(score.regionHit, "Region", `Region: ${round.actual.region}`));
@@ -363,15 +411,17 @@ function actualForm(round, onSave) {
     <label for="act-coords">Coordinates (optional)</label><input id="act-coords" placeholder="lat, lng">
     <p class="error" id="act-err" hidden></p>`;
 
-  // Country suggestions from the coverage list; free text is still allowed.
+  // Country suggestions from the configured list; free text is still allowed.
   const datalist = document.createElement("datalist");
   datalist.id = "country-list";
-  for (const name of COVERAGE_COUNTRIES) {
-    const opt = document.createElement("option");
-    opt.value = name;
-    datalist.append(opt);
-  }
   card.append(datalist);
+  loadSettings().then((s) => {
+    for (const name of activeCountries(s)) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      datalist.append(opt);
+    }
+  });
 
   const save = actionButton("Save round", async () => {
     const err = card.querySelector("#act-err");

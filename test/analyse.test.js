@@ -69,3 +69,17 @@ test("analyseImage passes each provider its own effort, falling back to the adap
   await analyseImage("d", s, [], fake);
   assert.deepEqual(calls, { gemini: null, anthropic: "max", openai: "medium" });
 });
+
+test("analyseImage passes the configured countries and base URL to each provider", async () => {
+  const seen = {};
+  const fake = async (adapter, opts) => { seen[adapter.id] = [opts.countries, opts.baseUrl]; return goodResult; };
+  const s = { ...settings, active: "local", countries: ["Russia", "Australia"],
+    providers: { ...settings.providers, local: { key: "", model: "qwen", enabled: true, baseUrl: "http://localhost:1234/v1" } } };
+  await analyseImage("d", s, [], fake);
+  assert.deepEqual(seen.local, [["Australia", "Russia"], "http://localhost:1234/v1"]);
+});
+
+test("askAll includes an enabled local provider without a key", () => {
+  const s = { ...settings, askAll: true, providers: { ...settings.providers, local: { key: "", model: "q", enabled: true } } };
+  assert.deepEqual(providersToAsk(s), ["gemini", "anthropic", "local"]);
+});

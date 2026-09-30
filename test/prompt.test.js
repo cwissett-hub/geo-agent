@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATEGORIES, RESULT_SCHEMA, SYSTEM_PROMPT, buildUserText } from "../lib/prompt.js";
+import { CATEGORIES, RESULT_SCHEMA, SYSTEM_PROMPT, buildUserText, buildSchema, buildSystemPrompt } from "../lib/prompt.js";
 import { COVERAGE_COUNTRIES } from "../lib/countries.js";
 
 test("categories are the fixed list in spec order", () => {
@@ -36,9 +36,25 @@ test("schema restricts guess and alternative countries to the coverage list", ()
   assert.deepEqual(RESULT_SCHEMA.properties.alternatives.items.properties.country.enum, COVERAGE_COUNTRIES);
 });
 
-test("system prompt lists the coverage countries", () => {
+test("system prompt lists the coverage countries by default", () => {
   assert.ok(SYSTEM_PROMPT.includes("Botswana"));
-  assert.ok(SYSTEM_PROMPT.includes("Only these countries"));
+  assert.ok(SYSTEM_PROMPT.includes(`exactly as written: ${COVERAGE_COUNTRIES.join(", ")}.`));
+});
+
+test("schema and prompt follow a configured country list", () => {
+  const list = ["Australia", "Russia"];
+  const s = buildSchema(list);
+  assert.deepEqual(s.properties.guess.properties.country.enum, list);
+  assert.deepEqual(s.properties.alternatives.items.properties.country.enum, list);
+  const p = buildSystemPrompt(list);
+  assert.ok(p.includes("exactly as written: Australia, Russia."));
+  assert.ok(!p.includes("Botswana"));
+});
+
+test("system prompt covers guard rails, corner markings and the car view", () => {
+  for (const w of ["guard rails", "corner and junction markings", "Car view", "bottom view", "WHOLE stacked image", "at most 20 words"]) {
+    assert.ok(SYSTEM_PROMPT.includes(w), w);
+  }
 });
 
 test("system prompt demands sub-country precision", () => {

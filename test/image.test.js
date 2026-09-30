@@ -26,3 +26,21 @@ test("custom max edge is honoured and dimensions are integers", () => {
   assert.equal(r.height, 563);
   assert.ok(Number.isInteger(r.height));
 });
+
+import { stackLayout, STACK_GAP } from "../lib/image.js";
+
+test("stackLayout puts the car view under the main shot at the same width", () => {
+  const L = stackLayout({ width: 1000, height: 500 }, { width: 2000, height: 1000 });
+  assert.equal(L.width, 1000);
+  assert.deepEqual(L.top, { x: 0, y: 0, w: 1000, h: 500 });
+  assert.equal(L.bottom.y, 500 + STACK_GAP);
+  assert.equal(L.bottom.h, 500);
+  assert.equal(L.height, 1000 + STACK_GAP);
+});
+
+test("stackLayout fits the whole stack within the max edge", () => {
+  const L = stackLayout({ width: 1600, height: 900 }, { width: 1600, height: 900 }, 1600);
+  assert.equal(L.height, 1600);
+  assert.ok(L.width < 1600);
+  assert.equal(L.bottom.y + L.bottom.h, L.height);
+});

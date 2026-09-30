@@ -21,3 +21,17 @@ test("isCovered ignores case and whitespace", () => {
   assert.equal(isCovered("  south africa "), true);
   assert.equal(isCovered("Atlantis"), false);
 });
+
+import { normaliseCountries, activeCountries } from "../lib/countries.js";
+
+test("normaliseCountries trims, dedupes case-insensitively and sorts", () => {
+  assert.deepEqual(normaliseCountries([" Peru", "chile", "Peru", "", null, "Chile"]), ["chile", "Peru"]);
+  assert.deepEqual(normaliseCountries(undefined), []);
+});
+
+test("activeCountries uses the user's list, else the full coverage list", () => {
+  assert.deepEqual(activeCountries({ countries: ["Russia", "Australia"] }), ["Australia", "Russia"]);
+  assert.equal(activeCountries({ countries: null }), COVERAGE_COUNTRIES);
+  assert.equal(activeCountries({ countries: [] }), COVERAGE_COUNTRIES);
+  assert.equal(activeCountries(undefined), COVERAGE_COUNTRIES);
+});

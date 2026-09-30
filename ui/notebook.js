@@ -3,6 +3,7 @@ import { stats } from "../lib/notebook-logic.js";
 import { PROVIDER_ORDER } from "../lib/providers/index.js";
 import { providerLabel } from "../lib/manual.js";
 import { CATEGORIES } from "../lib/prompt.js";
+import { scorePassed } from "../lib/score.js";
 
 // Filters persist across re-renders so re-rendering after a delete or a filter
 // change keeps the controls where the user left them.
@@ -105,9 +106,9 @@ function roundRow(round, { onOpen, onDeleted }) {
   const when = new Date(round.ts).toLocaleString();
   let verdict = '<span class="muted">unscored</span>';
   if (round.scores) {
-    const hits = Object.values(round.scores).filter((s) => s.hit).length;
+    const passes = Object.values(round.scores).filter(scorePassed).length;
     const n = Object.keys(round.scores).length;
-    verdict = `<span class="${hits ? "hit" : "miss"}">${hits}/${n} hit</span> · actual ${escapeHtml(round.actual.country)}`;
+    verdict = `<span class="${passes ? "hit" : "miss"}">${passes}/${n} pass</span> · actual ${escapeHtml(round.actual.country)}`;
   }
   text.innerHTML =
     `<div>${escapeHtml(guesses)}</div>` +
@@ -179,7 +180,7 @@ function statsCard(s) {
       </tr>`;
     }).join("");
 
-  // Provider table: country hit rate (teal meter), region hit rate, mean
+  // Provider table: pass rate (country and region right), country hit rate (teal meter), region hit rate, mean
   // distance (whole km, or an en dash when unavailable), and the n counts.
   const provIds = [
     ...PROVIDER_ORDER.filter((id) => s.byProvider[id]),
@@ -193,6 +194,7 @@ function statsCard(s) {
     const townRate = v.rounds ? townHits / v.rounds : 0;
     return `<tr>
       <td>${escapeHtml(providerLabel(id))}</td>
+      <td>${metric(pct(v.passRate || 0), v.passRate || 0, "var(--accent)")}<span class="muted num n">${v.passes || 0}/${v.rounds}</span></td>
       <td>${metric(pct(v.rate), v.rate, "var(--accent)")}<span class="muted num n">${v.hits}/${v.rounds}</span></td>
       <td>${metric(pct(townRate), townRate, "var(--accent)")}<span class="muted num n">${townHits}/${v.rounds}</span></td>
       <td>${metric(pct(regionRate), regionRate, "var(--accent)")}<span class="muted num n">${v.regionHits}/${v.rounds}</span></td>
@@ -208,7 +210,7 @@ function statsCard(s) {
         ${catRows}
       </table>
       <table class="stats">
-        <tr><th>Provider</th><th>Country hit</th><th>Town hit</th><th>Region hit</th><th>Mean dist</th></tr>
+        <tr><th>Provider</th><th title="Right country AND right region, town, or within 500 km">Pass</th><th>Country hit</th><th>Town hit</th><th>Region hit</th><th>Mean dist</th></tr>
         ${provRows}
       </table>
     </div>`;

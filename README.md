@@ -6,20 +6,30 @@ Press **Alt+G** during a round. The extension screenshots what you see, asks
 a vision model where it is, and shows:
 
 - the guess (country, region, nearest town where possible, and best-guess
-  coordinates) and its confidence,
+  coordinates) and its confidence, with a map pinned at the guess so you can
+  see where that region and town actually are,
 - every clue it used, drawn as a numbered box on the screenshot,
 - how much weight each clue carried, as a bar,
 - its reasoning and the alternatives it rejected.
 
 After the round, type the real location. The extension scores the round —
-country hit, region hit, and distance in km — and each clue as supporting or
-misleading, then saves it to a personal notebook. The Notebook tab shows
-per-category clue reliability, each provider's hit rate, and mean distance.
+pass or fail, country hit, region hit, and distance in km — and each clue as
+supporting or misleading. A round only **passes** when the country is right
+*and* the region or town matches or the guess is within 500 km: the right
+country thousands of km out (easy in Russia or Australia) is a fail. Results
+are saved to a personal notebook. The Notebook tab shows
+per-category clue reliability, each provider's pass and hit rates, and mean distance.
 Recent misses are fed back into the next prompt.
 
-Guesses are restricted to a hand-maintained list of GeoGuessr coverage
-countries in `lib/countries.js`. Edit that file when GeoGuessr's coverage
-changes.
+Guesses are restricted to a list of countries. By default that is the
+coverage list in `lib/countries.js`; **Settings → Countries** lets you untick
+countries your map leaves out, or add ones GeoGuessr has added.
+
+**Google car view.** After a capture, press **Add Google car view**, look down
+in Street View yourself until the car is visible, then press **Go**. The car
+shot is stacked under the first screenshot and the round is analysed again
+with car meta in mind. The extension only screenshots; it never moves the
+view.
 
 It is a training aid, not a live assistant. It only runs when you ask, never
 moves, pans or zooms the viewer (safe in NMPZ), and never reads GeoGuessr's
@@ -52,6 +62,7 @@ failed to open when the profile lived under a temp directory.
 | OpenAI | `gpt-5` | Enabled by default | https://platform.openai.com | Pay as you go; make a project API key |
 | Claude | `claude-opus-5` | Optional, disabled until a key is added | https://console.anthropic.com | Pay as you go, roughly 2-3p per snapshot |
 | Gemini | `gemini-2.5-flash` | Optional, disabled until a key is added | https://aistudio.google.com/apikey | Free tier with rate limits (personal Google accounts; often blocked on corporate accounts) |
+| Local model | `qwen2.5vl:7b` | Optional | Your own server, no key | Free; runs on your GPU |
 
 None of the chat subscriptions (ChatGPT Plus, claude.ai) include API access —
 you bring your own key.
@@ -62,17 +73,38 @@ sent only to their own vendor. Never commit keys to this repository.
 Turn on **Ask every enabled provider** in Settings to send one snapshot to
 all configured models and compare their answers side by side.
 
+### Local models
+
+The **Local model** provider talks to any OpenAI-compatible server with a
+vision model: Ollama (`http://localhost:11434/v1`, e.g. `ollama pull
+qwen2.5vl:7b` or `gemma3`), LM Studio (`http://localhost:1234/v1`),
+llama.cpp server or vLLM. Set the server URL and model name in Settings. If
+Ollama answers 403, it is rejecting the extension's origin: set
+`OLLAMA_ORIGINS=chrome-extension://*` and restart Ollama.
+
+### Speed
+
+Most of the wait is the model writing its answer. The prompt asks for short
+clues, GPT-5 models are sent `verbosity: "low"`, and **Settings → Image
+size** can drop the screenshot to 1280 or 1024 px for a faster, slightly
+less detailed read. With OpenAI, `gpt-5-mini` or `gpt-5-nano` on minimal
+effort are the quickest.
+
 ## Manual mode (no key needed)
 
 If you don't have a working API key, the Round view offers **Copy image**
 and **Copy prompt** buttons. Paste both into any chat model (e.g. the
 claude.ai or ChatGPT web UI), then paste its JSON reply back into the round.
+The prompt ends with strict output rules and a filled-in example, and asks
+for one JSON object in a ```` ```json ```` code block. The paste box also
+copes with the usual slips: prose around the JSON, code fences, curly quotes
+and trailing commas.
 It renders and scores exactly like an API result. This needs the
 `clipboardWrite` permission, which is already declared in the manifest.
 
 ## Screenshots
 
-Screenshots are downscaled to 1600px (longest edge) JPEG before they are sent
+Screenshots are downscaled to 1600px (longest edge, configurable) JPEG before they are sent
 to a provider or stored in the notebook.
 
 ## Development

@@ -48,6 +48,19 @@ test("parseResponse throws unparseable on bad json", () => {
     (e) => e.code === "unparseable" && e.raw === "nah");
 });
 
+test("buildRequest asks GPT-5 models for low verbosity only", () => {
+  const five = JSON.parse(openai.buildRequest({ key: "k", model: "gpt-5-mini", imageDataUrl: img, feedbackLines: [] }).init.body);
+  assert.equal(five.verbosity, "low");
+  const other = JSON.parse(openai.buildRequest({ key: "k", model: "gpt-4.1-mini", imageDataUrl: img, feedbackLines: [] }).init.body);
+  assert.equal(other.verbosity, undefined);
+});
+
+test("buildRequest uses the configured country list", () => {
+  const body = JSON.parse(openai.buildRequest({ key: "k", model: "gpt-5", imageDataUrl: img, feedbackLines: [], countries: ["Chile", "Peru"] }).init.body);
+  assert.deepEqual(body.response_format.json_schema.schema.properties.guess.properties.country.enum, ["Chile", "Peru"]);
+  assert.ok(body.messages[0].content.includes("exactly as written: Chile, Peru."));
+});
+
 test("buildRequest sends reasoning_effort only when an effort is given", () => {
   const withEffort = JSON.parse(openai.buildRequest({ key: "k", model: "gpt-5", imageDataUrl: img, feedbackLines: [], effort: "low" }).init.body);
   assert.equal(withEffort.reasoning_effort, "low");
