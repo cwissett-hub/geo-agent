@@ -141,6 +141,13 @@ async function analyseWithCar() {
   handleReply(reply);
 }
 
+// Second Alt+G on a held car-first round. Guarded so the message and the
+// session flag (for a panel that was still opening) only send it once.
+function finishHeldRound() {
+  chrome.storage.session.remove("finishRequested");
+  if (currentRound && currentRound.awaitingCar) analyseWithCar();
+}
+
 async function retry() {
   if (!heldImage) return capture();
   currentRound = { pending: true };
@@ -162,7 +169,7 @@ chrome.runtime.onMessage.addListener((msg) => {
     showView("round");
     paintRound();
   }
-  if (msg.type === "finishRound" && currentRound && currentRound.awaitingCar) analyseWithCar();
+  if (msg.type === "finishRound") finishHeldRound();
   if (msg.type === "carShotError") {
     const prev = currentRound;
     renderRoundError(views.round, msg.error, { onRetry: () => { currentRound = prev; paintRound(); } });
@@ -177,8 +184,12 @@ document.getElementById("open-tab").onclick = () =>
 
 const { lastRound } = await chrome.storage.session.get("lastRound");
 if (lastRound && !lastRound.pending) { currentRound = lastRound; heldImage = lastRound.imageDataUrl; heldBase = lastRound.baseImageDataUrl || null; }
+// Opened by the shortcut mid-capture: show "Analysing…"; the result message follows.
+if (lastRound && lastRound.pending) currentRound = { pending: true };
 const { carShots } = await chrome.storage.session.get("carShots");
 if (carShots && (carShots.front || carShots.back)) car = { open: true, shots: { front: carShots.front || null, back: carShots.back || null } };
 await refreshFeedback();
 showView("round");
 paintRound();
+const { finishRequested } = await chrome.storage.session.get("finishRequested");
+if (finishRequested) finishHeldRound();

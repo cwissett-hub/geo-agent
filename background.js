@@ -88,23 +88,35 @@ async function captureCarShot(side) {
   chrome.runtime.sendMessage({ type: "carShot", side, imageDataUrl: shot.imageDataUrl }).catch(() => {});
 }
 
-chrome.commands.onCommand.addListener(async (command) => {
+// Both browsers only open the panel from inside the user action: the call has
+// to happen synchronously in the shortcut handler, before any await, or it is
+// silently refused. So the panel is opened first, from the tab the command
+// event hands us, and only then does the async work start.
+function openPanel(tab) {
+  if (sidebar) {
+    sidebar.open().catch(() => {});
+  } else if (chrome.sidePanel && tab) {
+    chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
+  }
+}
+
+chrome.commands.onCommand.addListener((command, tab) => {
+  if (command !== "capture" && command !== "car-front" && command !== "car-back") return;
+  openPanel(tab);
+  runCommand(command);
+});
+
+async function runCommand(command) {
   if (command === "car-front" || command === "car-back") {
-    if (sidebar) sidebar.open().catch(() => {});
-    const tab = await activeTab();
-    if (tab && chrome.sidePanel) chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
     await captureCarShot(command === "car-front" ? "front" : "back");
     return;
   }
-  if (command !== "capture") return;
-  // Firefox only opens the sidebar straight from the user action, before any await.
-  if (sidebar) sidebar.open().catch(() => {});
-  const tab = await activeTab();
-  if (tab && chrome.sidePanel) chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
   // Car view first: the second Alt+G on a held round sends it for analysis
-  // (with whatever car shots were taken) instead of capturing again.
+  // (with whatever car shots were taken) instead of capturing again. The flag
+  // covers a panel that is still opening and misses the message.
   const { lastRound: held } = await chrome.storage.session.get("lastRound");
   if (held && held.awaitingCar) {
+    await chrome.storage.session.set({ finishRequested: true });
     chrome.runtime.sendMessage({ type: "finishRound" }).catch(() => {});
     return;
   }
@@ -113,4 +125,4 @@ chrome.commands.onCommand.addListener(async (command) => {
   chrome.runtime.sendMessage({ type: "pending" }).catch(() => {});
   const reply = await captureAndAnalyse(lastFeedback || []);
   chrome.runtime.sendMessage({ type: "round", reply }).catch(() => {});
-});
+}
