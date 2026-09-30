@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Source for icons/icon*.png (render with: node dev/render-icons.mjs).
+       GeoGuessr purple tile, faint globe, and the red pin from the panel's wordmark. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7950e5"/>
+      <stop offset="1" stop-color="#2b1f6b"/>
+    </linearGradient>
+    <linearGradient id="pin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff5d6c"/>
+      <stop offset="1" stop-color="#c72f40"/>
+    </linearGradient>
+    <clipPath id="tile"><rect width="128" height="128" rx="28"/></clipPath>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <g clip-path="url(#tile)" fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="4">
+    <circle cx="64" cy="72" r="44"/>
+    <ellipse cx="64" cy="72" rx="20" ry="44"/>
+    <line x1="20" y1="72" x2="108" y2="72"/>
+    <path d="M26 50 Q64 60 102 50"/>
+    <path d="M26 94 Q64 84 102 94"/>
+  </g>
+  <!-- pin: shadow, body, white centre -->
+  <ellipse cx="64" cy="108" rx="14" ry="4.5" fill="#000000" fill-opacity="0.3"/>
+  <path d="M64 106 C 50 86, 36 74, 36 54 A 28 28 0 1 1 92 54 C 92 74, 78 86, 64 106 Z"
+        fill="url(#pin)" stroke="#ffffff" stroke-width="5" stroke-linejoin="round"/>
+  <circle cx="64" cy="53" r="11" fill="#ffffff"/>
+</svg>
