@@ -83,3 +83,13 @@ test("askAll includes an enabled local provider without a key", () => {
   const s = { ...settings, askAll: true, providers: { ...settings.providers, local: { key: "", model: "q", enabled: true } } };
   assert.deepEqual(providersToAsk(s), ["gemini", "anthropic", "local"]);
 });
+
+import { awaitingCarRound } from "../lib/analyse.js";
+
+test("awaitingCarRound holds the capture with no results and nothing sent", () => {
+  const r = awaitingCarRound("data:image/jpeg;base64,AA");
+  assert.equal(r.awaitingCar, true);
+  assert.deepEqual(r.results, []);
+  assert.equal(r.imageDataUrl, "data:image/jpeg;base64,AA");
+  assert.equal(r.actual, null);
+});

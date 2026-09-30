@@ -1,5 +1,5 @@
 import { loadSettings } from "./lib/settings.js";
-import { analyseImage } from "./lib/analyse.js";
+import { analyseImage, awaitingCarRound } from "./lib/analyse.js";
 import { downscaleDataUrl } from "./lib/image.js";
 
 // Chrome has the side panel API; Firefox has a sidebar instead (see
@@ -41,7 +41,10 @@ async function captureAndAnalyse(feedback) {
   const shot = await captureTab(settings.maxEdge);
   if (!shot.ok) return shot;
   const { imageDataUrl } = shot;
-  const round = await analyseImage(imageDataUrl, settings, feedback || []);
+  // Car view first: hold the capture; the panel analyses once car shots are in.
+  const round = settings.carFirst
+    ? awaitingCarRound(imageDataUrl)
+    : await analyseImage(imageDataUrl, settings, feedback || []);
   await chrome.storage.session.set({ lastRound: round });
   return { ok: true, round };
 }
@@ -98,6 +101,13 @@ chrome.commands.onCommand.addListener(async (command) => {
   if (sidebar) sidebar.open().catch(() => {});
   const tab = await activeTab();
   if (tab && chrome.sidePanel) chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
+  // Car view first: the second Alt+G on a held round sends it for analysis
+  // (with whatever car shots were taken) instead of capturing again.
+  const { lastRound: held } = await chrome.storage.session.get("lastRound");
+  if (held && held.awaitingCar) {
+    chrome.runtime.sendMessage({ type: "finishRound" }).catch(() => {});
+    return;
+  }
   const { lastFeedback } = await chrome.storage.session.get("lastFeedback");
   await chrome.storage.session.set({ lastRound: { pending: true } });
   chrome.runtime.sendMessage({ type: "pending" }).catch(() => {});

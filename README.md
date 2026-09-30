@@ -34,6 +34,12 @@ screenshot, and the round is analysed once. The extension only takes
 screenshots; it never moves the view. (NMPZ rounds don't let you look
 around, so no car view there.)
 
+**Car view first.** Some rounds are only solvable from the car. Turn on
+**Settings → Car view first** and the first **Alt+G** only captures the main
+view (nothing is sent). Add the car front/back with Alt+Shift+F / Alt+Shift+B,
+then press **Alt+G again** (or *Analyse*) to send the round once, with or
+without car shots. In manual mode, Copy image then gives the combined image.
+
 It is a training aid, not a live assistant. It only runs when you ask, never
 moves, pans or zooms the viewer (safe in NMPZ), and never reads GeoGuessr's
 page internals.

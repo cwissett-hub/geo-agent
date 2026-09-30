@@ -16,6 +16,7 @@ export async function renderSettings(root) {
     checkbox("manual", "Manual mode: capture only, no API call. Copy the image and prompt into a chat, paste the reply back.", s.manual),
     field("Active provider", select("active", PROVIDER_ORDER.map((id) => [id, PROVIDERS[id].label]), s.active)),
     checkbox("askAll", "Ask every enabled provider with a key (side by side)", s.askAll),
+    checkbox("carFirst", "Car view first: Alt+G captures without analysing, so you can add the Google car (front/back) and send the round once with Alt+G again", s.carFirst),
     // Smaller images are sent and read faster; the cost is fine detail on
     // distant signs and bollards.
     field("Image size (smaller is faster)", select("maxEdge", IMAGE_SIZES.map((n) => [String(n), `${n} px`]), String(s.maxEdge))),
@@ -62,6 +63,7 @@ export async function renderSettings(root) {
     const next = {
       countries: chosen,
       maxEdge: Number(root.querySelector("#maxEdge").value),
+      carFirst: root.querySelector("#carFirst").checked,
       manual: root.querySelector("#manual").checked,
       active: root.querySelector("#active").value,
       askAll: root.querySelector("#askAll").checked,

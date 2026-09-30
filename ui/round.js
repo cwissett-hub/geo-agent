@@ -40,7 +40,15 @@ export function renderRound(root, round, { onCapture, onRetry, onUpdate, car }) 
   const top = document.createElement("div");
   top.className = "row";
   top.style.marginBottom = "12px";
-  top.append(actionButton("Capture & analyse (Alt+G)", onCapture));
+  // While a car-first round is held, Alt+G means "send it", so this button is
+  // the way to throw the held capture away and take the main view again.
+  if (round && round.awaitingCar) {
+    const again = actionButton("Recapture main view", onCapture);
+    again.className = "secondary";
+    top.append(again);
+  } else {
+    top.append(actionButton("Capture & analyse (Alt+G)", onCapture));
+  }
   root.append(top);
   if (round && !round.pending && round.imageDataUrl && !round.actual && car) {
     const c = carViewCard(round, car);
@@ -115,6 +123,10 @@ export function renderRound(root, round, { onCapture, onRetry, onUpdate, car }) 
   // Leaving the results area restores the default provider's boxes.
   if (multi && firstOk) columns.onmouseleave = () => showOnly(firstOk.provider);
 
+  // A car-first round is still being assembled: no manual copy (the car shots
+  // are not in the image yet) and nothing to score.
+  if (round.awaitingCar) return;
+
   // Manual mode: usable whenever there is a screenshot, including when every
   // API result errored (no key, or a failed call — the main use case).
   if (round.imageDataUrl) {
@@ -142,24 +154,30 @@ export function renderRound(root, round, { onCapture, onRetry, onUpdate, car }) 
 function carViewCard(round, car) {
   const card = document.createElement("div");
   card.className = "card car-view";
-  card.hidden = !car.open;
+  const held = Boolean(round.awaitingCar);
+  const open = car.open || held;
+  card.hidden = !open;
   const button = Object.assign(document.createElement("button"), {
     className: "secondary",
     textContent: round.baseImageDataUrl ? "Retake Google car view" : "Add Google car view",
-    hidden: car.open,
+    hidden: open,
     onclick: car.onOpen,
   });
-  if (!car.open) return { button, card };
+  if (!open) return { button, card };
 
   // Numbered steps so it is clear when to move the view: the main view is
   // already captured, so now is the time to look down.
   const steps = document.createElement("ol");
   steps.className = "car-steps";
   const step = (done, html) => { const li = document.createElement("li"); if (done) li.className = "done"; li.innerHTML = html; steps.append(li); };
-  step(true, "Main view captured. You can move the view now.");
+  step(true, held
+    ? "Main view captured, <strong>not analysed yet</strong>. You can move the view now."
+    : "Main view captured. You can move the view now.");
   step(Boolean(car.shots.front), "Drag the view down until you see the <strong>front</strong> of the Google car, then press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> or <em>Capture front</em>.");
   step(Boolean(car.shots.back), "Turn round to the <strong>back</strong> of the car if it shows more (rack, spare wheel, antenna), then <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> or <em>Capture back</em>. One end is enough.");
-  step(false, "Press <em>Analyse with car view</em>. The car shots go under the main screenshot and the round is analysed once.");
+  step(false, held
+    ? "Press <kbd>Alt</kbd>+<kbd>G</kbd> again or <em>Analyse</em>. Whatever car shots you took go under the main screenshot and the round is sent once."
+    : "Press <em>Analyse with car view</em>. The car shots go under the main screenshot and the round is analysed once.");
   card.append(
     steps,
     p("muted", "The extension only takes screenshots; it never moves the view. In NMPZ rounds you cannot look around, so there is no car view."),
@@ -188,10 +206,12 @@ function carViewCard(round, car) {
 
   const row = document.createElement("div");
   row.className = "row";
-  const analyse = actionButton("Analyse with car view", () => car.onAnalyse());
-  analyse.disabled = !car.shots.front && !car.shots.back;
-  const cancel = Object.assign(document.createElement("button"), { className: "secondary", textContent: "Cancel", onclick: car.onClose });
-  row.append(analyse, cancel);
+  const anyShot = Boolean(car.shots.front || car.shots.back);
+  const analyse = actionButton(held && !anyShot ? "Analyse without car view (Alt+G)" : `Analyse with car view${held ? " (Alt+G)" : ""}`, () => car.onAnalyse());
+  analyse.disabled = !held && !anyShot;
+  row.append(analyse);
+  // A held round has no analysis to fall back to, so no Cancel.
+  if (!held) row.append(Object.assign(document.createElement("button"), { className: "secondary", textContent: "Cancel", onclick: car.onClose }));
   card.append(row);
   return { button, card };
 }

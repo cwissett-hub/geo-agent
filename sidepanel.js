@@ -79,6 +79,8 @@ async function updateRound(updated) {
 }
 
 function handleReply(reply) {
+  // Car view first: the capture is held, so open the car card straight away.
+  if (reply.ok && reply.round.awaitingCar) car.open = true;
   if (reply.ok) {
     // Keep the car-less screenshot so a retake replaces the car view rather
     // than stacking a third image.
@@ -125,13 +127,14 @@ async function analyseWithCar() {
   const shots = [["front", "FRONT"], ["back", "BACK"]]
     .filter(([side]) => car.shots[side])
     .map(([side, label]) => ({ url: car.shots[side], label }));
-  if (!shots.length) return;
+  // A held (car-first) round may be sent with no car shots at all.
+  if (!shots.length && !prev.awaitingCar) return;
   currentRound = { pending: true };
   paintRound();
   const { maxEdge } = await loadSettings();
-  const stacked = await stackDataUrls(base, shots, maxEdge);
+  const stacked = shots.length ? await stackDataUrls(base, shots, maxEdge) : base;
   resetCar();
-  heldBase = base;
+  heldBase = shots.length ? base : null;
   heldImage = stacked;
   const feedback = await refreshFeedback();
   const reply = await chrome.runtime.sendMessage({ type: "analyse", imageDataUrl: stacked, feedback });
@@ -150,6 +153,7 @@ async function retry() {
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === "carShot") {
     if (!currentRound || currentRound.pending || !currentRound.imageDataUrl || currentRound.actual) {
+      chrome.storage.session.remove("carShots");
       showView("round");
       renderRoundError(views.round, { code: "capture", message: "Car view goes with a round: capture the round first (Alt+G), then look down at the car." }, { onRetry: () => paintRound() });
       return;
@@ -158,6 +162,7 @@ chrome.runtime.onMessage.addListener((msg) => {
     showView("round");
     paintRound();
   }
+  if (msg.type === "finishRound" && currentRound && currentRound.awaitingCar) analyseWithCar();
   if (msg.type === "carShotError") {
     const prev = currentRound;
     renderRoundError(views.round, msg.error, { onRetry: () => { currentRound = prev; paintRound(); } });
