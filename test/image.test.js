@@ -29,18 +29,29 @@ test("custom max edge is honoured and dimensions are integers", () => {
 
 import { stackLayout, STACK_GAP } from "../lib/image.js";
 
-test("stackLayout puts the car view under the main shot at the same width", () => {
-  const L = stackLayout({ width: 1000, height: 500 }, { width: 2000, height: 1000 });
+test("stackLayout puts one car view under the main shot at full width", () => {
+  const L = stackLayout({ width: 1000, height: 500 }, [{ width: 2000, height: 1000 }]);
   assert.equal(L.width, 1000);
   assert.deepEqual(L.top, { x: 0, y: 0, w: 1000, h: 500 });
-  assert.equal(L.bottom.y, 500 + STACK_GAP);
-  assert.equal(L.bottom.h, 500);
+  assert.deepEqual(L.bottoms, [{ x: 0, y: 500 + STACK_GAP, w: 1000, h: 500 }]);
   assert.equal(L.height, 1000 + STACK_GAP);
 });
 
+test("stackLayout puts front and back side by side, half width each", () => {
+  const L = stackLayout({ width: 1000, height: 500 }, [{ width: 1000, height: 500 }, { width: 1000, height: 500 }]);
+  const [f, b] = L.bottoms;
+  const cell = (1000 - STACK_GAP) / 2;
+  assert.equal(f.x, 0);
+  assert.equal(f.w, Math.round(cell));
+  assert.equal(b.x, Math.round(cell + STACK_GAP));
+  assert.equal(f.y, b.y);
+  assert.ok(b.x + b.w <= L.width);
+  assert.equal(L.height, Math.round(500 + STACK_GAP + cell / 2));
+});
+
 test("stackLayout fits the whole stack within the max edge", () => {
-  const L = stackLayout({ width: 1600, height: 900 }, { width: 1600, height: 900 }, 1600);
+  const L = stackLayout({ width: 1600, height: 900 }, [{ width: 1600, height: 900 }], 1600);
   assert.equal(L.height, 1600);
   assert.ok(L.width < 1600);
-  assert.equal(L.bottom.y + L.bottom.h, L.height);
+  assert.ok(L.bottoms[0].y + L.bottoms[0].h <= L.height);
 });

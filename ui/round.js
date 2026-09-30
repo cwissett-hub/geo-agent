@@ -35,17 +35,17 @@ export function renderRoundError(root, error, { onRetry }) {
   if (onRetry) root.append(actionButton("Retry", onRetry));
 }
 
-export function renderRound(root, round, { onCapture, onRetry, onUpdate, onCarView }) {
+export function renderRound(root, round, { onCapture, onRetry, onUpdate, car }) {
   root.innerHTML = "";
   const top = document.createElement("div");
   top.className = "row";
   top.style.marginBottom = "12px";
   top.append(actionButton("Capture & analyse (Alt+G)", onCapture));
   root.append(top);
-  if (round && !round.pending && round.imageDataUrl && !round.actual && onCarView) {
-    const car = carViewCard(round, onCarView);
-    top.append(car.button);
-    root.append(car.card);
+  if (round && !round.pending && round.imageDataUrl && !round.actual && car) {
+    const c = carViewCard(round, car);
+    top.append(c.button);
+    root.append(c.card);
   }
 
   if (!round) {
@@ -123,44 +123,67 @@ export function renderRound(root, round, { onCapture, onRetry, onUpdate, onCarVi
     // when the round is already saved); the local fallback just re-renders.
     const rerender = onUpdate
       ? onUpdate
-      : (updated) => renderRound(root, updated, { onCapture, onRetry, onUpdate, onCarView });
+      : (updated) => renderRound(root, updated, { onCapture, onRetry, onUpdate, car });
     mainCol.append(manualCard(round, rerender));
   }
 
   mainCol.append(actualForm(round, async (updated) => {
     await putRound(updated);
-    renderRound(root, updated, { onCapture, onRetry, onUpdate, onCarView });
+    renderRound(root, updated, { onCapture, onRetry, onUpdate, car });
     if (root._onSaved) root._onSaved(updated);
   }));
 }
 
 // Car meta: the player looks down in Street View themselves (the extension
-// never moves the camera), then presses Go. The car shot is stacked under the
-// main screenshot and the round is analysed again.
-function carViewCard(round, onCarView) {
+// never moves the camera) at the front and/or the back of the Google car and
+// captures each end, then analyses once. car = { shots: {front, back},
+// open, onOpen, onClose, onShot(side), onAnalyse() } from sidepanel.js, which
+// keeps the shots across re-renders.
+function carViewCard(round, car) {
   const card = document.createElement("div");
   card.className = "card car-view";
-  card.hidden = true;
-  const again = Boolean(round.baseImageDataUrl);
+  card.hidden = !car.open;
   const button = Object.assign(document.createElement("button"), {
     className: "secondary",
-    textContent: again ? "Retake Google car view" : "Add Google car view",
+    textContent: round.baseImageDataUrl ? "Retake Google car view" : "Add Google car view",
+    hidden: car.open,
+    onclick: car.onOpen,
   });
-  const close = () => { card.hidden = true; button.hidden = false; };
-  button.onclick = () => {
-    button.hidden = true;
-    card.hidden = false;
-    card.innerHTML = "";
-    card.append(
-      p("", "Look down in Street View until the Google car (roof, rack, antenna, bonnet) is in view, then press Go."),
-      p("muted", "The extension only takes a screenshot; it never moves the view. The car shot is added under the first screenshot and the round is analysed again."),
-    );
-    const row = document.createElement("div");
-    row.className = "row";
-    const cancel = Object.assign(document.createElement("button"), { className: "secondary", textContent: "Cancel", onclick: close });
-    row.append(actionButton("Go", () => onCarView()), cancel);
-    card.append(row);
-  };
+  if (!car.open) return { button, card };
+
+  card.append(
+    p("", "Look down in Street View at the front or the back of the Google car, whichever shows more, then capture it. You can capture both."),
+    p("muted", "The extension only takes screenshots; it never moves the view. The car shots go under the first screenshot and the round is analysed once, when you press Analyse."),
+  );
+  const slots = document.createElement("div");
+  slots.className = "car-slots";
+  for (const [side, label] of [["front", "Front"], ["back", "Back"]]) {
+    const slot = document.createElement("div");
+    slot.className = "car-slot";
+    const shot = car.shots[side];
+    if (shot) {
+      const img = Object.assign(document.createElement("img"), { src: shot, alt: `Google car, ${side}` });
+      slot.append(img);
+    } else {
+      slot.append(p("muted car-empty", `No ${side} shot`));
+    }
+    const b = Object.assign(document.createElement("button"), {
+      className: "secondary",
+      textContent: shot ? `Retake ${side}` : `Capture ${side}`,
+      onclick: () => car.onShot(side),
+    });
+    slot.append(b);
+    slots.append(slot);
+  }
+  card.append(slots);
+
+  const row = document.createElement("div");
+  row.className = "row";
+  const analyse = actionButton("Analyse with car view", () => car.onAnalyse());
+  analyse.disabled = !car.shots.front && !car.shots.back;
+  const cancel = Object.assign(document.createElement("button"), { className: "secondary", textContent: "Cancel", onclick: car.onClose });
+  row.append(analyse, cancel);
+  card.append(row);
   return { button, card };
 }
 

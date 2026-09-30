@@ -26,6 +26,11 @@ await s("Runtime.enable"); await s("Page.enable");
 await s("Emulation.setDeviceMetricsOverride", { width: +w, height: +h, deviceScaleFactor: 1, mobile: false });
 await s("Page.navigate", { url });
 await new Promise((r) => setTimeout(r, +(process.env.SHOT_WAIT || 1800)));
+// SHOT_JS: optional script run in the page before the screenshot (clicks etc.).
+if (process.env.SHOT_JS) {
+  await s("Runtime.evaluate", { expression: process.env.SHOT_JS, awaitPromise: true });
+  await new Promise((r) => setTimeout(r, 800));
+}
 let clip;
 if (fullPage === "1") {
   const { cssContentSize } = await s("Page.getLayoutMetrics");

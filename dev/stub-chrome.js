@@ -23,6 +23,12 @@
           const make = window.__previewCaptureReply;
           return make ? make(msg) : { ok: false, error: { code: "capture", message: "preview: no capture reply configured" } };
         }
+        // Car view: hand back the held round's own screenshot as the "car" shot.
+        if (msg.type === "captureCar") {
+          const { lastRound } = await area("session").get("lastRound");
+          const img = document.querySelector(".shot img");
+          return { ok: true, imageDataUrl: (lastRound && lastRound.imageDataUrl) || (img && img.src) };
+        }
         return null;
       },
       onMessage: { addListener() {} },

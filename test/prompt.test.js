@@ -52,7 +52,7 @@ test("schema and prompt follow a configured country list", () => {
 });
 
 test("system prompt covers guard rails, corner markings and the car view", () => {
-  for (const w of ["guard rails", "corner and junction markings", "Car view", "bottom view", "WHOLE stacked image", "at most 20 words"]) {
+  for (const w of ["guard rails", "corner and junction markings", "Car view", "CAR FRONT", "CAR BACK", "WHOLE stacked image", "at most 20 words"]) {
     assert.ok(SYSTEM_PROMPT.includes(w), w);
   }
 });
