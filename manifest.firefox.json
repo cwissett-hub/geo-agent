@@ -3,15 +3,20 @@
   "name": "Geo Meta Trainer",
   "version": "0.1.0",
   "description": "Screenshot a GeoGuessr round, get a vision-model guess with boxed clues and weights, and build a personal meta notebook.",
-  "permissions": ["activeTab", "sidePanel", "storage", "tabs", "clipboardWrite"],
+  "permissions": ["activeTab", "storage", "tabs", "clipboardWrite"],
   "host_permissions": [
     "<all_urls>",
     "https://api.anthropic.com/*",
     "https://api.openai.com/*",
     "https://generativelanguage.googleapis.com/*"
   ],
-  "background": { "service_worker": "background.js", "type": "module" },
-  "side_panel": { "default_path": "sidepanel.html" },
+  "background": { "scripts": ["background.js"], "type": "module" },
+  "sidebar_action": {
+    "default_panel": "sidepanel.html",
+    "default_title": "Geo Meta Trainer",
+    "default_icon": { "128": "icons/icon128.png" },
+    "open_at_install": false
+  },
   "action": { "default_title": "Geo Meta Trainer" },
   "icons": { "128": "icons/icon128.png" },
   "commands": {
@@ -27,5 +32,13 @@
       "suggested_key": { "default": "Alt+Shift+B" },
       "description": "Car view: capture the back of the Google car (look down at it first)"
     }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "geo-meta-trainer@cwissett-hub.github.io",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": { "required": ["none"] }
+    },
+    "gecko_android": { "strict_min_version": "142.0" }
   }
 }

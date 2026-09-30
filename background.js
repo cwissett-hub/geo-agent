@@ -2,9 +2,19 @@ import { loadSettings } from "./lib/settings.js";
 import { analyseImage } from "./lib/analyse.js";
 import { downscaleDataUrl } from "./lib/image.js";
 
+// Chrome has the side panel API; Firefox has a sidebar instead (see
+// manifest.firefox.json). Everything else is the same code in both.
+const sidebar = globalThis.browser && globalThis.browser.sidebarAction; // Firefox only
+
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  if (chrome.sidePanel) chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 });
+
+// Firefox: the toolbar button toggles the sidebar. (Chrome opens its side
+// panel itself via setPanelBehavior and never fires onClicked.)
+if (!chrome.sidePanel && sidebar) {
+  chrome.action.onClicked.addListener(() => { sidebar.toggle(); });
+}
 
 async function activeTab() {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -59,10 +69,35 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return false;
 });
 
+// Car view shortcuts: the player has already looked down at that end of the
+// car. Capture it into the panel's front/back slot; the panel persists the
+// slots in session storage, so a shot taken while the panel is still opening
+// is not lost.
+async function captureCarShot(side) {
+  const settings = await loadSettings();
+  const shot = await captureTab(settings.maxEdge);
+  if (!shot.ok) {
+    chrome.runtime.sendMessage({ type: "carShotError", error: shot.error }).catch(() => {});
+    return;
+  }
+  const { carShots } = await chrome.storage.session.get("carShots");
+  await chrome.storage.session.set({ carShots: { ...(carShots || {}), [side]: shot.imageDataUrl } });
+  chrome.runtime.sendMessage({ type: "carShot", side, imageDataUrl: shot.imageDataUrl }).catch(() => {});
+}
+
 chrome.commands.onCommand.addListener(async (command) => {
+  if (command === "car-front" || command === "car-back") {
+    if (sidebar) sidebar.open().catch(() => {});
+    const tab = await activeTab();
+    if (tab && chrome.sidePanel) chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
+    await captureCarShot(command === "car-front" ? "front" : "back");
+    return;
+  }
   if (command !== "capture") return;
+  // Firefox only opens the sidebar straight from the user action, before any await.
+  if (sidebar) sidebar.open().catch(() => {});
   const tab = await activeTab();
-  if (tab) chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
+  if (tab && chrome.sidePanel) chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
   const { lastFeedback } = await chrome.storage.session.get("lastFeedback");
   await chrome.storage.session.set({ lastRound: { pending: true } });
   chrome.runtime.sendMessage({ type: "pending" }).catch(() => {});

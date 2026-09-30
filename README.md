@@ -25,11 +25,14 @@ Guesses are restricted to a list of countries. By default that is the
 coverage list in `lib/countries.js`; **Settings → Countries** lets you untick
 countries your map leaves out, or add ones GeoGuessr has added.
 
-**Google car view.** After a capture, press **Add Google car view**, look down
-in Street View yourself until the car is visible, then press **Go**. The car
-shot is stacked under the first screenshot and the round is analysed again
-with car meta in mind. The extension only screenshots; it never moves the
-view.
+**Google car view.** Once the round is captured, you are free to move the
+view. Look down at the **front** of the Google car and press **Alt+Shift+F**
+(or *Capture front* in the car card), and/or turn round to the **back** and
+press **Alt+Shift+B**. One end is enough. Then press *Analyse with car view*:
+the shots are labelled CAR FRONT / CAR BACK, stacked under the main
+screenshot, and the round is analysed once. The extension only takes
+screenshots; it never moves the view. (NMPZ rounds don't let you look
+around, so no car view there.)
 
 It is a training aid, not a live assistant. It only runs when you ask, never
 moves, pans or zooms the viewer (safe in NMPZ), and never reads GeoGuessr's
@@ -44,6 +47,26 @@ page internals.
 5. For a bigger view, use the "Open in a full tab" button in the side panel — handy on big monitors.
 
 No build step. No server. Nothing is installed.
+
+### Firefox
+
+Same code, different manifest (`manifest.firefox.json`: a Firefox sidebar
+instead of Chrome's side panel, background scripts instead of a service
+worker). Needs Firefox 140 or later.
+
+1. `node scripts/build-firefox.mjs` (or `npm run build:firefox`). This writes
+   `dist/firefox/` and `dist/geo-meta-trainer-firefox.zip`.
+2. For a quick try: `about:debugging` -> **This Firefox** -> **Load Temporary
+   Add-on** -> pick `dist/firefox/manifest.json`. Temporary add-ons are removed
+   when Firefox closes.
+3. To install it permanently, the zip must be signed by Mozilla: upload it at
+   https://addons.mozilla.org/developers/ as "On your own" (unlisted). That is
+   free and gives back a signed `.xpi` anyone can install.
+
+The toolbar button or View -> Sidebar opens the panel. Shortcuts are changed in
+`about:addons` -> gear menu -> **Manage Extension Shortcuts**. For a local
+Ollama server, allow Firefox's origin too:
+`OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*`.
 
 ### If "Load unpacked" is blocked by a corporate Chrome policy
 
@@ -80,7 +103,7 @@ vision model: Ollama (`http://localhost:11434/v1`, e.g. `ollama pull
 qwen2.5vl:7b` or `gemma3`), LM Studio (`http://localhost:1234/v1`),
 llama.cpp server or vLLM. Set the server URL and model name in Settings. If
 Ollama answers 403, it is rejecting the extension's origin: set
-`OLLAMA_ORIGINS=chrome-extension://*` and restart Ollama.
+`OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*` and restart Ollama.
 
 ### Speed
 

@@ -151,13 +151,22 @@ function carViewCard(round, car) {
   });
   if (!car.open) return { button, card };
 
+  // Numbered steps so it is clear when to move the view: the main view is
+  // already captured, so now is the time to look down.
+  const steps = document.createElement("ol");
+  steps.className = "car-steps";
+  const step = (done, html) => { const li = document.createElement("li"); if (done) li.className = "done"; li.innerHTML = html; steps.append(li); };
+  step(true, "Main view captured. You can move the view now.");
+  step(Boolean(car.shots.front), "Drag the view down until you see the <strong>front</strong> of the Google car, then press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> or <em>Capture front</em>.");
+  step(Boolean(car.shots.back), "Turn round to the <strong>back</strong> of the car if it shows more (rack, spare wheel, antenna), then <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> or <em>Capture back</em>. One end is enough.");
+  step(false, "Press <em>Analyse with car view</em>. The car shots go under the main screenshot and the round is analysed once.");
   card.append(
-    p("", "Look down in Street View at the front or the back of the Google car, whichever shows more, then capture it. You can capture both."),
-    p("muted", "The extension only takes screenshots; it never moves the view. The car shots go under the first screenshot and the round is analysed once, when you press Analyse."),
+    steps,
+    p("muted", "The extension only takes screenshots; it never moves the view. In NMPZ rounds you cannot look around, so there is no car view."),
   );
   const slots = document.createElement("div");
   slots.className = "car-slots";
-  for (const [side, label] of [["front", "Front"], ["back", "Back"]]) {
+  for (const [side, keyHint] of [["front", "Alt+Shift+F"], ["back", "Alt+Shift+B"]]) {
     const slot = document.createElement("div");
     slot.className = "car-slot";
     const shot = car.shots[side];
@@ -165,7 +174,7 @@ function carViewCard(round, car) {
       const img = Object.assign(document.createElement("img"), { src: shot, alt: `Google car, ${side}` });
       slot.append(img);
     } else {
-      slot.append(p("muted car-empty", `No ${side} shot`));
+      slot.append(p("muted car-empty", `No ${side} shot (${keyHint})`));
     }
     const b = Object.assign(document.createElement("button"), {
       className: "secondary",

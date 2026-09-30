@@ -17,7 +17,17 @@ let heldImage = null;      // last screenshot data URL, for retry
 let heldBase = null;       // main screenshot without the car view, when one was added
 let car = { open: false, shots: { front: null, back: null } }; // car-view shots being collected
 
-function resetCar() { car = { open: false, shots: { front: null, back: null } }; }
+function resetCar() {
+  car = { open: false, shots: { front: null, back: null } };
+  chrome.storage.session.remove("carShots");
+}
+// Car shots live in session storage too: the keyboard shortcuts capture them
+// in the background, possibly before this panel has finished opening.
+function setCarShot(side, imageDataUrl) {
+  car.open = true;
+  car.shots[side] = imageDataUrl;
+  chrome.storage.session.set({ carShots: { ...car.shots } });
+}
 
 export async function refreshFeedback() {
   // The notebook is an optimisation, not a requirement: if IndexedDB is
@@ -104,7 +114,7 @@ async function captureCarShot(side) {
     renderRoundError(views.round, shot.error, { onRetry: () => { currentRound = prev; paintRound(); } });
     return;
   }
-  car.shots[side] = shot.imageDataUrl;
+  setCarShot(side, shot.imageDataUrl);
   paintRound();
 }
 
@@ -138,6 +148,20 @@ async function retry() {
 }
 
 chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === "carShot") {
+    if (!currentRound || currentRound.pending || !currentRound.imageDataUrl || currentRound.actual) {
+      showView("round");
+      renderRoundError(views.round, { code: "capture", message: "Car view goes with a round: capture the round first (Alt+G), then look down at the car." }, { onRetry: () => paintRound() });
+      return;
+    }
+    setCarShot(msg.side, msg.imageDataUrl);
+    showView("round");
+    paintRound();
+  }
+  if (msg.type === "carShotError") {
+    const prev = currentRound;
+    renderRoundError(views.round, msg.error, { onRetry: () => { currentRound = prev; paintRound(); } });
+  }
   if (msg.type === "pending") { heldBase = null; resetCar(); currentRound = { pending: true }; showView("round"); paintRound(); }
   if (msg.type === "round") { showView("round"); handleReply(msg.reply); }
 });
@@ -148,6 +172,8 @@ document.getElementById("open-tab").onclick = () =>
 
 const { lastRound } = await chrome.storage.session.get("lastRound");
 if (lastRound && !lastRound.pending) { currentRound = lastRound; heldImage = lastRound.imageDataUrl; heldBase = lastRound.baseImageDataUrl || null; }
+const { carShots } = await chrome.storage.session.get("carShots");
+if (carShots && (carShots.front || carShots.back)) car = { open: true, shots: { front: carShots.front || null, back: carShots.back || null } };
 await refreshFeedback();
 showView("round");
 paintRound();

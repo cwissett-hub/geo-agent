@@ -44,7 +44,7 @@ export async function renderSettings(root) {
     }
     c.append(checkbox(`enabled-${id}`, "Enabled", p.enabled), fields);
     if (id === "local") {
-      c.append(p_("muted", "Any OpenAI-compatible server with a vision model: Ollama (http://localhost:11434/v1, e.g. qwen2.5vl:7b or gemma3), LM Studio (http://localhost:1234/v1), llama.cpp, vLLM. No key needed. If Ollama answers 403, set OLLAMA_ORIGINS=chrome-extension://* and restart it."));
+      c.append(p_("muted", "Any OpenAI-compatible server with a vision model: Ollama (http://localhost:11434/v1, e.g. qwen2.5vl:7b or gemma3), LM Studio (http://localhost:1234/v1), llama.cpp, vLLM. No key needed. If Ollama answers 403, set OLLAMA_ORIGINS=chrome-extension://*,moz-extension://* and restart it."));
     }
     root.append(c);
   }
@@ -96,7 +96,10 @@ export async function renderSettings(root) {
   const nb = card("Notebook");
   const hint = document.createElement("p");
   hint.className = "muted";
-  hint.textContent = "Shortcut: Alt+G captures and analyses the current tab. Change it at chrome://extensions/shortcuts.";
+  const shortcuts = navigator.userAgent.includes("Firefox")
+    ? "about:addons (gear menu, Manage Extension Shortcuts)"
+    : "chrome://extensions/shortcuts";
+  hint.textContent = `Shortcut: Alt+G captures and analyses the current tab. Change it at ${shortcuts}.`;
   const exportBtn = button("secondary", "Export JSON", async () => {
     const text = serialiseRounds(await allRounds());
     const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
